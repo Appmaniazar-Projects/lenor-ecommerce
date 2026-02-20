@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import { ProductCatalog } from "./product-catalog"
+import { Suspense } from "react"
 
 export const metadata: Metadata = {
   title: "Products",
@@ -8,5 +9,16 @@ export const metadata: Metadata = {
 }
 
 export default function ProductsPage() {
-  return <ProductCatalog />
+  return (
+    <Suspense fallback={
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center">
+          <div className="h-8 w-8 border-4 border-gray-300 border-t-gray-900 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading products...</p>
+        </div>
+      </div>
+    }>
+      <ProductCatalog />
+    </Suspense>
+  )
 }
