@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { ProductCatalog } from "@/components/products"
+import { ProductGrid } from "@/components/products"
 import { SiteHeader } from "@/components/layout/site-header"
 import { SiteFooter } from "@/components/layout/site-footer"
 import { Button } from "@/components/ui/button"
@@ -56,7 +56,7 @@ export default function HomePage() {
                       <Button 
                         variant="outline" 
                         size="lg"
-                        className="border-white text-white hover:bg-white hover:text-gray-900 text-lg px-8 py-4 h-14 font-bold rounded-xl transition-all duration-300"
+                        className="bg-orange-500 hover:bg-orange-600 text-white border-orange-500 hover:border-orange-600 text-lg px-8 py-4 h-14 font-bold rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl"
                       >
                         Get Quote
                       </Button>
@@ -118,7 +118,7 @@ export default function HomePage() {
               </p>
             </div>
             
-            <ProductCatalog products={MOCK_PRODUCTS} />
+            <ProductGrid products={MOCK_PRODUCTS.slice(0, 8)} />
           </div>
         </section>
       </main>
