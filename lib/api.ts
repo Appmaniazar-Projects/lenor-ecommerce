@@ -5,7 +5,6 @@
  */
 
 import {
-  MOCK_PRODUCTS,
   MOCK_ORDERS,
   MOCK_QUOTES,
   MOCK_USER,
@@ -15,6 +14,10 @@ import {
   type UserProfile,
 } from "./mock-data"
 import type { CategoryId } from "./constants"
+
+
+
+
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -45,61 +48,96 @@ export interface PaginatedProducts {
   totalPages: number
 }
 
-export async function getProducts(
-  filters: ProductFilters = {}
-): Promise<PaginatedProducts> {
-  await delay(200)
+async function fetchProducts(): Promise<Product[]> {
+  const baseUrl =
+    typeof window === "undefined"
+      ? process.env.NEXT_PUBLIC_APP_URL ||
+        "http://localhost:3000"
+      : ""
 
-  let results = [...MOCK_PRODUCTS]
+  const response = await fetch(
+    `${baseUrl}/api/products`,
+    {
+      cache: "no-store",
+    }
+  )
 
-  if (filters.search) {
-    const q = filters.search.toLowerCase()
-    results = results.filter(
-      (p) =>
-        p.name.toLowerCase().includes(q) ||
-        p.description.toLowerCase().includes(q) ||
-        p.sku.toLowerCase().includes(q)
+  if (!response.ok) {
+    throw new Error(
+      `Failed to fetch products: ${response.status}`
     )
   }
 
+  return response.json()
+}
+
+
+export async function getProducts(
+  filters: ProductFilters = {}
+): Promise<PaginatedProducts> {
+  const baseUrl =
+    typeof window === "undefined"
+      ? process.env.NEXT_PUBLIC_APP_URL ||
+        "http://localhost:3000"
+      : "";
+
+  const params = new URLSearchParams();
+
+  params.set("page", String(filters.page ?? 1));
+  params.set("perPage", String(filters.perPage ?? 12));
+
+  if (filters.search) {
+    params.set("search", filters.search);
+  }
+
   if (filters.category) {
-    results = results.filter((p) => p.category === filters.category)
-  }
-
-  if (filters.minPrice !== undefined) {
-    results = results.filter((p) => p.price >= filters.minPrice!)
-  }
-
-  if (filters.maxPrice !== undefined) {
-    results = results.filter((p) => p.price <= filters.maxPrice!)
+    params.set("category", filters.category);
   }
 
   if (filters.stockOnly) {
-    results = results.filter((p) => p.stockLevel !== "out-of-stock")
+    params.set("stockOnly", "true");
   }
 
-  const total = results.length
-  const page = filters.page ?? 1
-  const perPage = filters.perPage ?? 12
-  const totalPages = Math.ceil(total / perPage)
-  const start = (page - 1) * perPage
-
-  return {
-    products: results.slice(start, start + perPage),
-    total,
-    page,
-    totalPages,
+  if (filters.minPrice !== undefined) {
+    params.set("minPrice", String(filters.minPrice));
   }
+
+  if (filters.maxPrice !== undefined) {
+    params.set("maxPrice", String(filters.maxPrice));
+  }
+
+  const response = await fetch(
+    `${baseUrl}/api/products?${params.toString()}`,
+    { cache: "no-store" }
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to fetch products: ${response.status}`
+    );
+  }
+
+  return response.json() as Promise<PaginatedProducts>;
 }
 
-export async function getProduct(id: string): Promise<Product | null> {
-  await delay(150)
-  return MOCK_PRODUCTS.find((p) => p.id === id) ?? null
+
+export async function getProduct(
+  id: string
+): Promise<Product | null> {
+  const products = await fetchProducts()
+
+  return (
+    products.find((product) => product.id === id) ??
+    null
+  )
 }
 
 export async function getFeaturedProducts(): Promise<Product[]> {
-  await delay(150)
-  return MOCK_PRODUCTS.filter((p) => p.featured)
+  const products = await fetchProducts()
+
+  return products.filter(
+    (product) => product.featured
+  )
 }
 
 /* ------------------------------------------------------------------ */

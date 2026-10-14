@@ -1,5 +1,7 @@
+
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { FileText, ShoppingCart } from "lucide-react"
@@ -23,136 +25,102 @@ export function ProductCard({ product }: ProductCardProps) {
   const { isAuthenticated } = useAuth()
   const router = useRouter()
 
+  const [imageFailed, setImageFailed] = useState(false)
+
+  // Prefer the actual Amrod product image.
+  // Never use random image selection during rendering.
+  const smartImage =
+    product.images?.find(
+      (image) =>
+        typeof image === "string" &&
+        image.trim().length > 0
+    ) ?? null
+
   function handleAddToQuote(e: React.MouseEvent) {
     e.preventDefault()
+    e.stopPropagation()
+
     addToQuote({
       productId: product.id,
       productName: product.name,
       sku: product.sku,
       price: product.price,
       quantity: product.minOrderQty,
-      color: product.colors[0],
-      size: product.sizes[0],
-      image: product.images[0] ?? "",
+      color: product.colors[0] ?? "Standard",
+      size: product.sizes[0] ?? "One Size",
+      image: smartImage ?? "",
       brandingNotes: "",
-      brandingPosition: product.brandingPositions[0]?.label ?? "",
+      brandingPosition:
+        product.brandingPositions[0]?.label ?? "",
     })
+
     toast.success(`${product.name} added to quote basket`)
     setTimeout(() => router.push("/quote-basket"), 500)
   }
 
-  // Smart image matching based on product name
-  const getSmartImage = (product: Product) => {
-    const name = product.name.toLowerCase()
-    
-    // Specific product-based image matching
-    if (name.includes('t-shirt') || name.includes('tee') || name.includes('golf shirt')) {
-      return [
-        "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400&h=400&fit=crop&auto=format",
-        "https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=400&h=400&fit=crop&auto=format"
-      ][Math.random() > 0.5 ? 1 : 0]
-    }
-    
-    if (name.includes('hoodie') || name.includes('sweatshirt')) {
-      return [
-        "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=400&h=400&fit=crop&auto=format",
-        "https://images.unsplash.com/photo-1579338559194-a162d19bf424?w=400&h=400&fit=crop&auto=format"
-      ][Math.random() > 0.5 ? 1 : 0]
-    }
-    
-    if (name.includes('cap') || name.includes('hat')) {
-      return [
-        "https://images.unsplash.com/photo-1574662785488-4133a8e5a0f8?w=400&h=400&fit=crop&auto=format"
-      ][0]
-    }
-    
-    if (name.includes('tote') || name.includes('bag')) {
-      return [
-        "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400&h=400&fit=crop&auto=format",
-        "https://images.unsplash.com/photo-1544816155-12df9643f363?w=400&h=400&fit=crop&auto=format"
-      ][Math.random() > 0.5 ? 1 : 0]
-    }
-    
-    if (name.includes('mug') || name.includes('cup')) {
-      return [
-        "https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=400&h=400&fit=crop&auto=format",
-        "https://images.unsplash.com/photo-1527960674768-5b69250adfe1?w=400&h=400&fit=crop&auto=format"
-      ][Math.random() > 0.5 ? 1 : 0]
-    }
-    
-    if (name.includes('pen') || name.includes('pencil')) {
-      return [
-        "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400&h=400&fit=crop&auto=format",
-        "https://images.unsplash.com/photo-1603302576837-37561b2e2302?w=400&h=400&fit=crop&auto=format"
-      ][Math.random() > 0.5 ? 1 : 0]
-    }
-    
-    if (name.includes('notebook') || name.includes('journal')) {
-      return [
-        "https://images.unsplash.com/photo-1523435288958-0a8798752a1a?w=400&h=400&fit=crop&auto=format",
-        "https://images.unsplash.com/photo-1504382262782-5b5ece6f7a09?w=400&h=400&fit=crop&auto=format"
-      ][Math.random() > 0.5 ? 1 : 0]
-    }
-    
-    if (name.includes('phone') || name.includes('mobile')) {
-      return [
-        "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop&auto=format",
-        "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=400&h=400&fit=crop&auto=format"
-      ][Math.random() > 0.5 ? 1 : 0]
-    }
-    
-    if (name.includes('power bank') || name.includes('charger')) {
-      return [
-        "https://images.unsplash.com/photo-1593642632821-c8b8e3db5973?w=400&h=400&fit=crop&auto=format",
-        "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=400&h=400&fit=crop&auto=format"
-      ][Math.random() > 0.5 ? 1 : 0]
-    }
-    
-    // Default to category image
-    return product.images && product.images.length > 0 ? product.images[0] : null
-  }
-
-  const smartImage = getSmartImage(product)
-
   function handleAddToCart(e: React.MouseEvent) {
     e.preventDefault()
+    e.stopPropagation()
+
     addToCart({
       productId: product.id,
       productName: product.name,
       sku: product.sku,
       price: product.price,
       quantity: product.minOrderQty,
-      color: product.colors[0],
-      size: product.sizes[0],
-      image: product.images[0] ?? "",
+      color: product.colors[0] ?? "Standard",
+      size: product.sizes[0] ?? "One Size",
+      image: smartImage ?? "",
     })
+
     toast.success(`${product.name} added to cart`)
     setTimeout(() => router.push("/cart"), 500)
   }
 
+  const colorMap: Record<string, string> = {
+    white: "#f5f5f5",
+    navy: "#1e3a5f",
+    black: "#1a1a1a",
+    red: "#dc2626",
+    "royal blue": "#2563eb",
+    grey: "#9ca3af",
+    "grey melange": "#9ca3af",
+    charcoal: "#374151",
+    silver: "#c0c0c0",
+    "rose gold": "#b76e79",
+    pink: "#ec4899",
+    "sky blue": "#38bdf8",
+    khaki: "#c3b091",
+    tan: "#d2b48c",
+    green: "#22c55e",
+    blue: "#3b82f6",
+  }
+
   return (
-    <Link href={`/products/${product.id}`}>
+    <Link
+      href={`/products/${product.id}`}
+      className="block h-full"
+    >
       <Card className="group h-full overflow-hidden transition-colors hover:border-accent/50">
         {/* Product Image */}
         <div className="relative aspect-square overflow-hidden bg-muted">
-          {smartImage ? (
+          {smartImage && !imageFailed ? (
             <img
               src={smartImage}
               alt={product.name}
+              loading="lazy"
+              decoding="async"
               className="h-full w-full object-cover transition-transform group-hover:scale-105"
-              onError={(e) => {
-                // Fallback to placeholder if image fails to load
-                const target = e.target as HTMLImageElement
-                target.style.display = 'none'
-                target.nextElementSibling?.classList.remove('hidden')
-              }}
+              onError={() => setImageFailed(true)}
             />
-          ) : null}
-          <div className="flex h-full w-full items-center justify-center bg-muted/50">
-            <span className="text-3xl font-bold text-muted-foreground/30">
-              {product.name.charAt(0)}
-            </span>
-          </div>
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center bg-muted/50">
+              <span className="text-3xl font-bold text-muted-foreground/30">
+                {product.name.charAt(0)}
+              </span>
+            </div>
+          )}
+
           <div className="absolute left-2 top-2">
             <StockIndicator level={product.stockLevel} />
           </div>
@@ -160,7 +128,10 @@ export function ProductCard({ product }: ProductCardProps) {
 
         <CardContent className="flex flex-col gap-3 p-4">
           <div>
-            <p className="text-xs text-muted-foreground">{product.sku}</p>
+            <p className="text-xs text-muted-foreground">
+              {product.sku}
+            </p>
+
             <h3 className="mt-1 line-clamp-2 text-sm font-semibold leading-snug text-foreground group-hover:text-accent">
               {product.name}
             </h3>
@@ -173,6 +144,7 @@ export function ProductCard({ product }: ProductCardProps) {
                   <p className="text-lg font-bold text-foreground">
                     {formatPrice(product.price)}
                   </p>
+
                   <p className="text-xs text-muted-foreground">
                     excl. VAT | Min: {product.minOrderQty}
                   </p>
@@ -180,10 +152,11 @@ export function ProductCard({ product }: ProductCardProps) {
               ) : (
                 <>
                   <p className="text-lg font-bold text-foreground">
-                    <Link href="/login" className="text-blue-600 hover:text-blue-800 hover:underline">
+                    <span className="text-blue-600 hover:text-blue-800 hover:underline">
                       Sign in to see price
-                    </Link>
+                    </span>
                   </p>
+
                   <p className="text-xs text-muted-foreground">
                     Min: {product.minOrderQty} units
                   </p>
@@ -192,7 +165,7 @@ export function ProductCard({ product }: ProductCardProps) {
             </div>
           </div>
 
-          {/* Color dots */}
+          {/* Available colour indicators */}
           <div className="flex flex-wrap gap-1">
             {product.colors.slice(0, 5).map((color) => (
               <span
@@ -200,41 +173,13 @@ export function ProductCard({ product }: ProductCardProps) {
                 className="inline-block h-4 w-4 rounded-full border border-border"
                 style={{
                   backgroundColor:
-                    color.toLowerCase() === "white"
-                      ? "#f5f5f5"
-                      : color.toLowerCase() === "navy"
-                        ? "#1e3a5f"
-                        : color.toLowerCase() === "black"
-                          ? "#1a1a1a"
-                          : color.toLowerCase() === "red"
-                            ? "#dc2626"
-                            : color.toLowerCase() === "royal blue"
-                              ? "#2563eb"
-                              : color.toLowerCase() === "grey" || color.toLowerCase() === "grey melange"
-                                ? "#9ca3af"
-                                : color.toLowerCase() === "charcoal"
-                                  ? "#374151"
-                                  : color.toLowerCase() === "silver"
-                                    ? "#c0c0c0"
-                                    : color.toLowerCase() === "rose gold"
-                                      ? "#b76e79"
-                                      : color.toLowerCase() === "pink"
-                                        ? "#ec4899"
-                                        : color.toLowerCase() === "sky blue"
-                                          ? "#38bdf8"
-                                          : color.toLowerCase() === "khaki"
-                                            ? "#c3b091"
-                                            : color.toLowerCase() === "tan"
-                                              ? "#d2b48c"
-                                              : color.toLowerCase() === "green"
-                                                ? "#22c55e"
-                                                : color.toLowerCase() === "blue"
-                                                  ? "#3b82f6"
-                                                  : "#e5e7eb",
+                    colorMap[color.toLowerCase()] ?? "#e5e7eb",
                 }}
                 title={color}
+                aria-label={color}
               />
             ))}
+
             {product.colors.length > 5 && (
               <span className="text-xs text-muted-foreground">
                 +{product.colors.length - 5}
@@ -242,7 +187,7 @@ export function ProductCard({ product }: ProductCardProps) {
             )}
           </div>
 
-          {/* Actions */}
+          {/* Cart and quote actions */}
           <div className="flex gap-2">
             <Button
               size="sm"
@@ -252,6 +197,7 @@ export function ProductCard({ product }: ProductCardProps) {
               <FileText className="mr-1 h-3 w-3" />
               Quote
             </Button>
+
             <Button
               size="sm"
               variant="outline"

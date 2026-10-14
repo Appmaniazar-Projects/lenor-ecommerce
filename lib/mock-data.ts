@@ -24,6 +24,13 @@ export interface Product {
   minOrderQty: number
   brandingPositions: BrandingPosition[]
   featured: boolean
+  variants?: {
+  fullCode: string
+  color: string
+  size: string
+  price: number
+  stock: number
+}[]
 }
 
 /* ------------------------------------------------------------------ */

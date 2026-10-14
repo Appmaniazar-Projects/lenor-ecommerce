@@ -3,11 +3,23 @@
 import { useState } from "react"
 import Link from "next/link"
 import { toast } from "sonner"
-import { FileText, ShoppingCart, ArrowLeft, MapPin } from "lucide-react"
+import {
+  FileText,
+  ShoppingCart,
+  ArrowLeft,
+  MapPin,
+} from "lucide-react"
+
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+
 import {
   Select,
   SelectContent,
@@ -15,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -23,12 +36,15 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
+
 import { StockIndicator } from "@/components/products/stock-indicator"
 import { QuantitySelector } from "@/components/products/quantity-selector"
 import { BulkPricingCalculator } from "@/components/products/bulk-pricing-calculator"
+
 import { useCart } from "@/contexts/cart-context"
 import { useQuote } from "@/contexts/quote-context"
 import { useAuth } from "@/contexts/auth-context"
+
 import { formatPrice, CATEGORIES } from "@/lib/constants"
 import type { Product } from "@/lib/mock-data"
 
@@ -36,44 +52,231 @@ interface Props {
   product: Product
 }
 
+function getImageForColor(
+  images: string[],
+  color: string
+): string | undefined {
+  if (!images?.length) return undefined
+
+  const normalizedColor = color.toLowerCase().trim()
+
+  const colorCodeMap: Record<string, string[]> = {
+    black: ["bk"],
+    grey: ["gy", "gr"],
+    gray: ["gy", "gr"],
+    navy: ["ny", "nv"],
+    white: ["wh"],
+    red: ["rd"],
+    blue: ["bl"],
+    green: ["gn", "gr"],
+    yellow: ["yl"],
+    orange: ["or"],
+  }
+
+  const codes = colorCodeMap[normalizedColor] ?? []
+
+  if (!codes.length) {
+    return images[0]
+  }
+
+  const matchingImage = images.find((image) => {
+    const filename = image.toLowerCase()
+
+    return codes.some(
+      (code) =>
+        filename.includes(`mo${code}`) ||
+        filename.includes(`-${code}-`)
+    )
+  })
+
+  return matchingImage ?? images[0]
+}
+
 export function ProductDetailClient({ product }: Props) {
   const { addItem: addToCart } = useCart()
   const { addItem: addToQuote } = useQuote()
   const { isAuthenticated } = useAuth()
-  const [selectedColor, setSelectedColor] = useState(product.colors[0])
-  const [selectedSize, setSelectedSize] = useState(product.sizes[0])
+
+  const variants = product.variants ?? []
+  const images = product.images ?? []
+
+  const availableColors = [
+    ...new Set(
+      variants.length > 0
+        ? variants.map((variant) => variant.color)
+        : product.colors
+    ),
+  ]
+
+  const initialColor = availableColors[0] ?? "Standard"
+
+  const initialSizes = [
+    ...new Set(
+      variants.length > 0
+        ? variants
+            .filter((variant) => variant.color === initialColor)
+            .map((variant) => variant.size)
+        : product.sizes
+    ),
+  ]
+
+  const [selectedColor, setSelectedColor] = useState(initialColor)
+  const [selectedSize, setSelectedSize] = useState(
+    initialSizes[0] ?? "One Size"
+  )
   const [quantity, setQuantity] = useState(product.minOrderQty)
+  const [selectedImage, setSelectedImage] = useState(0)
+  const [manuallySelectedImage, setManuallySelectedImage] =
+    useState(false)
 
   const categoryName =
-    CATEGORIES.find((c) => c.id === product.category)?.name ?? product.category
+    CATEGORIES.find((category) => category.id === product.category)
+      ?.name ?? product.category
+
+  // Resolve the exact Amrod variant for the selected colour and size.
+  const selectedVariant = variants.find(
+    (variant) =>
+      variant.color === selectedColor &&
+      variant.size === selectedSize
+  )
+
+  // Never treat a missing variant price as a valid product price.
+  const selectedPrice = selectedVariant?.price ?? 0
+  const selectedSku = selectedVariant?.fullCode ?? product.sku
+  const selectedStock = selectedVariant?.stock ?? 0
+
+  const hasValidPrice =
+    selectedVariant != null &&
+    Number.isFinite(selectedVariant.price) &&
+    selectedVariant.price > 0
+
+  const selectedStockLevel =
+    !selectedVariant || selectedStock <= 0
+      ? "out-of-stock"
+      : selectedStock <= 10
+        ? "low-stock"
+        : "in-stock"
+
+  // Only show sizes that exist for the selected colour.
+  const availableSizes = [
+    ...new Set(
+      variants.length > 0
+        ? variants
+            .filter((variant) => variant.color === selectedColor)
+            .map((variant) => variant.size)
+        : product.sizes
+    ),
+  ]
+
+  // Use a colour-matching image unless the customer selects a thumbnail.
+  const colorImage = getImageForColor(images, selectedColor)
+
+  const mainImage = manuallySelectedImage
+    ? images[selectedImage] ?? colorImage
+    : colorImage ?? images[0]
+
+  function handleColorChange(color: string) {
+    setSelectedColor(color)
+
+    const sizesForColor = [
+      ...new Set(
+        variants
+          .filter((variant) => variant.color === color)
+          .map((variant) => variant.size)
+      ),
+    ]
+
+    if (
+      sizesForColor.length > 0 &&
+      !sizesForColor.includes(selectedSize)
+    ) {
+      setSelectedSize(sizesForColor[0])
+    }
+
+    setSelectedImage(0)
+    setManuallySelectedImage(false)
+  }
+
+  function handleSizeChange(size: string) {
+    setSelectedSize(size)
+    setSelectedImage(0)
+    setManuallySelectedImage(false)
+  }
+
+  function validateSelection(): boolean {
+    if (!selectedVariant) {
+      toast.error(
+        "Please select a valid colour and size combination"
+      )
+      return false
+    }
+
+    if (!hasValidPrice) {
+      toast.error(
+        "Pricing is currently unavailable for this variant"
+      )
+      return false
+    }
+
+    if (selectedStock <= 0) {
+      toast.error("This variant is currently out of stock")
+      return false
+    }
+
+    if (
+      !Number.isInteger(quantity) ||
+      quantity < product.minOrderQty
+    ) {
+      toast.error(
+        `Minimum order quantity is ${product.minOrderQty}`
+      )
+      return false
+    }
+
+    if (quantity > selectedStock) {
+      toast.error(
+        `Only ${selectedStock} units are currently available`
+      )
+      return false
+    }
+
+    return true
+  }
 
   function handleAddToQuote() {
+    if (!validateSelection() || !selectedVariant) return
+
     addToQuote({
       productId: product.id,
       productName: product.name,
-      sku: product.sku,
-      price: product.price,
+      sku: selectedVariant.fullCode,
+      price: selectedVariant.price,
       quantity,
       color: selectedColor,
       size: selectedSize,
-      image: product.images[0] ?? "",
+      image: mainImage ?? "",
       brandingNotes: "",
-      brandingPosition: product.brandingPositions[0]?.label ?? "",
+      brandingPosition:
+        product.brandingPositions[0]?.label ?? "",
     })
+
     toast.success(`${product.name} added to quote basket`)
   }
 
   function handleAddToCart() {
+    if (!validateSelection() || !selectedVariant) return
+
     addToCart({
       productId: product.id,
       productName: product.name,
-      sku: product.sku,
-      price: product.price,
+      sku: selectedVariant.fullCode,
+      price: selectedVariant.price,
       quantity,
       color: selectedColor,
       size: selectedSize,
-      image: product.images[0] ?? "",
+      image: mainImage ?? "",
     })
+
     toast.success(`${product.name} added to cart`)
   }
 
@@ -87,15 +290,21 @@ export function ProductDetailClient({ product }: Props) {
               <Link href="/products">Products</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
+
           <BreadcrumbSeparator />
+
           <BreadcrumbItem>
-            <BreadcrumbLink asChild>
+            <BreadcrumbLink
+              asChild
+            >
               <Link href={`/products?category=${product.category}`}>
                 {categoryName}
               </Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
+
           <BreadcrumbSeparator />
+
           <BreadcrumbItem>
             <BreadcrumbPage>{product.name}</BreadcrumbPage>
           </BreadcrumbItem>
@@ -103,51 +312,109 @@ export function ProductDetailClient({ product }: Props) {
       </Breadcrumb>
 
       <div className="mt-6 flex flex-col gap-8 lg:flex-row">
-        {/* Image */}
+        {/* Product images */}
         <div className="lg:w-1/2">
           <div className="aspect-square overflow-hidden rounded-lg bg-muted">
-            <div className="flex h-full w-full items-center justify-center">
-              <span className="text-6xl font-bold text-muted-foreground/20">
-                {product.name.charAt(0)}
-              </span>
-            </div>
+            {mainImage ? (
+              <img
+                src={mainImage}
+                alt={`${product.name} - ${selectedColor}`}
+                className="h-full w-full object-contain"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center">
+                <span className="text-6xl font-bold text-muted-foreground/20">
+                  {product.name.charAt(0)}
+                </span>
+              </div>
+            )}
           </div>
+
+          {images.length > 1 && (
+            <div className="mt-4 flex gap-3 overflow-x-auto">
+              {images.map((image, index) => (
+                <button
+                  key={`${image}-${index}`}
+                  type="button"
+                  onClick={() => {
+                    setSelectedImage(index)
+                    setManuallySelectedImage(true)
+                  }}
+                  aria-label={`View product image ${index + 1}`}
+                  aria-pressed={
+                    manuallySelectedImage &&
+                    selectedImage === index
+                  }
+                  className={`h-20 w-20 shrink-0 overflow-hidden rounded-md border bg-muted ${
+                    (manuallySelectedImage &&
+                      selectedImage === index) ||
+                    (!manuallySelectedImage &&
+                      image === colorImage)
+                      ? "border-primary"
+                      : "border-border"
+                  }`}
+                >
+                  <img
+                    src={image}
+                    alt={`${product.name} image ${index + 1}`}
+                    className="h-full w-full object-contain"
+                  />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Info */}
+        {/* Product information */}
         <div className="flex flex-1 flex-col gap-6">
           <div>
             <div className="flex items-center gap-3">
-              <StockIndicator level={product.stockLevel} />
+              <StockIndicator level={selectedStockLevel} />
+
               <span className="text-xs text-muted-foreground">
-                SKU: {product.sku}
+                SKU: {selectedSku}
               </span>
             </div>
+
             <h1 className="mt-3 text-2xl font-bold text-foreground lg:text-3xl">
               {product.name}
             </h1>
+
             <p className="mt-3 leading-relaxed text-muted-foreground">
               {product.description}
             </p>
           </div>
 
+          {/* Pricing */}
           <div>
             {isAuthenticated ? (
               <>
-                <p className="text-3xl font-bold text-foreground">
-                  {formatPrice(product.price)}
-                </p>
+                {hasValidPrice ? (
+                  <p className="text-3xl font-bold text-foreground">
+                    {formatPrice(selectedPrice)}
+                  </p>
+                ) : (
+                  <p className="text-base font-medium text-muted-foreground">
+                    Price currently unavailable
+                  </p>
+                )}
+
                 <p className="text-sm text-muted-foreground">
-                  excl. VAT per unit | Min order: {product.minOrderQty} units
+                  excl. VAT per unit | Min order:{" "}
+                  {product.minOrderQty} units
                 </p>
               </>
             ) : (
               <>
                 <p className="text-3xl font-bold text-foreground">
-                  <Link href="/login" className="text-blue-600 hover:text-blue-800 hover:underline">
+                  <Link
+                    href="/login"
+                    className="text-blue-600 hover:text-blue-800 hover:underline"
+                  >
                     Sign in to see price
                   </Link>
                 </p>
+
                 <p className="text-sm text-muted-foreground">
                   Min order: {product.minOrderQty} units
                 </p>
@@ -157,19 +424,22 @@ export function ProductDetailClient({ product }: Props) {
 
           <Separator />
 
-          {/* Color */}
+          {/* Colour selection */}
           <div className="flex flex-col gap-2">
             <label className="text-sm font-medium text-foreground">
               Colour: {selectedColor}
             </label>
+
             <div className="flex flex-wrap gap-2">
-              {product.colors.map((color) => (
+              {availableColors.map((color) => (
                 <button
                   key={color}
-                  onClick={() => setSelectedColor(color)}
+                  type="button"
+                  onClick={() => handleColorChange(color)}
+                  aria-pressed={selectedColor === color}
                   className={`rounded-md border px-3 py-1.5 text-sm transition-colors ${
                     selectedColor === color
-                      ? "border-accent bg-accent/10 text-foreground font-medium"
+                      ? "border-accent bg-accent/10 font-medium text-foreground"
                       : "border-border text-muted-foreground hover:border-accent/50"
                   }`}
                 >
@@ -179,16 +449,23 @@ export function ProductDetailClient({ product }: Props) {
             </div>
           </div>
 
-          {/* Size */}
-          {product.sizes.length > 1 && (
+          {/* Size selection */}
+          {availableSizes.length > 1 && (
             <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium text-foreground">Size</label>
-              <Select value={selectedSize} onValueChange={setSelectedSize}>
+              <label className="text-sm font-medium text-foreground">
+                Size
+              </label>
+
+              <Select
+                value={selectedSize}
+                onValueChange={handleSizeChange}
+              >
                 <SelectTrigger className="w-40">
-                  <SelectValue />
+                  <SelectValue placeholder="Select size" />
                 </SelectTrigger>
+
                 <SelectContent>
-                  {product.sizes.map((size) => (
+                  {availableSizes.map((size) => (
                     <SelectItem key={size} value={size}>
                       {size}
                     </SelectItem>
@@ -203,33 +480,57 @@ export function ProductDetailClient({ product }: Props) {
             <label className="text-sm font-medium text-foreground">
               Quantity
             </label>
+
             <QuantitySelector
               value={quantity}
               min={product.minOrderQty}
               onChange={setQuantity}
             />
+
             <p className="text-xs text-muted-foreground">
-              Subtotal: {formatPrice(product.price * quantity)} excl. VAT
+              Subtotal:{" "}
+              {formatPrice(selectedPrice * quantity)} excl. VAT
             </p>
+
+            {selectedVariant &&
+              quantity > selectedStock &&
+              selectedStock > 0 && (
+                <p className="text-sm text-destructive">
+                  Only {selectedStock} units are currently available.
+                </p>
+              )}
           </div>
 
           <Separator />
 
-          {/* Actions */}
+          {/* Cart and quote actions */}
           <div className="flex flex-col gap-3 sm:flex-row">
             <Button
               size="lg"
               className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90"
               onClick={handleAddToQuote}
+              disabled={
+                !selectedVariant ||
+                !hasValidPrice ||
+                selectedStock <= 0 ||
+                quantity > selectedStock
+              }
             >
               <FileText className="mr-2 h-4 w-4" />
               Add to Quote
             </Button>
+
             <Button
               size="lg"
               variant="outline"
               className="flex-1"
               onClick={handleAddToCart}
+              disabled={
+                !selectedVariant ||
+                !hasValidPrice ||
+                selectedStock <= 0 ||
+                quantity > selectedStock
+              }
             >
               <ShoppingCart className="mr-2 h-4 w-4" />
               Add to Cart
@@ -245,15 +546,23 @@ export function ProductDetailClient({ product }: Props) {
                   Branding Positions
                 </CardTitle>
               </CardHeader>
+
               <CardContent>
                 <div className="flex flex-col gap-3">
-                  {product.brandingPositions.map((bp) => (
-                    <div key={bp.id} className="flex items-start gap-3">
-                      <Badge variant="secondary" className="shrink-0">
-                        {bp.label}
+                  {product.brandingPositions.map((position) => (
+                    <div
+                      key={position.id}
+                      className="flex items-start gap-3"
+                    >
+                      <Badge
+                        variant="secondary"
+                        className="shrink-0"
+                      >
+                        {position.label}
                       </Badge>
+
                       <p className="text-sm text-muted-foreground">
-                        {bp.description}
+                        {position.description}
                       </p>
                     </div>
                   ))}
@@ -264,7 +573,12 @@ export function ProductDetailClient({ product }: Props) {
 
           <BulkPricingCalculator product={product} />
 
-          <Button variant="ghost" size="sm" className="w-fit" asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-fit"
+            asChild
+          >
             <Link href="/products">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Products
