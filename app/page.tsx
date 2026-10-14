@@ -6,9 +6,12 @@ import { SiteHeader } from "@/components/layout/site-header"
 import { SiteFooter } from "@/components/layout/site-footer"
 import { Button } from "@/components/ui/button"
 import { ArrowRight, Star, Zap, Package, CheckCircle, TrendingUp, Shield } from "lucide-react"
-import { MOCK_PRODUCTS } from "@/lib/mock-data"
 
-export default function HomePage() {
+import { getFeaturedProducts } from "@/lib/api"
+
+export default async function HomePage() {
+  const featuredProducts = await getFeaturedProducts()
+
   return (
     <div className="min-h-screen bg-gray-50">
       <SiteHeader />
@@ -118,7 +121,7 @@ export default function HomePage() {
               </p>
             </div>
             
-            <ProductGrid products={MOCK_PRODUCTS.slice(0, 8)} />
+            <ProductGrid products={featuredProducts} />
           </div>
         </section>
       </main>

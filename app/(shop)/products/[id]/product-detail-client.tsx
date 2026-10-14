@@ -169,7 +169,9 @@ export function ProductDetailClient({ product }: Props) {
   ]
 
   // Use a colour-matching image unless the customer selects a thumbnail.
-  const colorImage = getImageForColor(images, selectedColor)
+ const colorImage =
+  (product as any).colorImages?.[selectedColor]?.[0] ??
+  getImageForColor(images, selectedColor)
 
   const mainImage = manuallySelectedImage
     ? images[selectedImage] ?? colorImage
