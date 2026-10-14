@@ -86,7 +86,10 @@ export async function getProducts(
 
   params.set("page", String(filters.page ?? 1));
   params.set("perPage", String(filters.perPage ?? 12));
+
+  if (filters.featured) {
   params.set("featured", "true");
+}
 
   if (filters.search) {
     params.set("search", filters.search);

@@ -1,16 +1,17 @@
-"use client"
-
 import Link from "next/link"
 import { ProductGrid } from "@/components/products"
 import { SiteHeader } from "@/components/layout/site-header"
 import { SiteFooter } from "@/components/layout/site-footer"
 import { Button } from "@/components/ui/button"
 import { ArrowRight, Star, Zap, Package, CheckCircle, TrendingUp, Shield } from "lucide-react"
-
-import { getFeaturedProducts } from "@/lib/api"
+import { queryCatalogue } from "@/lib/catalogue"
 
 export default async function HomePage() {
-  const featuredProducts = await getFeaturedProducts()
+  const { products: featuredProducts } = await queryCatalogue({
+    featured: true,
+    page: 1,
+    perPage: 8,
+  })
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -121,7 +122,7 @@ export default async function HomePage() {
               </p>
             </div>
             
-            <ProductGrid products={featuredProducts} />
+            <ProductGrid products={featuredProducts.slice(0, 8)} />
           </div>
         </section>
       </main>

@@ -1,10 +1,10 @@
-
 "use client"
 
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { FileText, ShoppingCart } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { StockIndicator } from "./stock-indicator"
@@ -19,6 +19,25 @@ interface ProductCardProps {
   product: Product
 }
 
+const colorMap: Record<string, string> = {
+  white: "#f5f5f5",
+  navy: "#1e3a5f",
+  black: "#1a1a1a",
+  red: "#dc2626",
+  "royal blue": "#2563eb",
+  grey: "#9ca3af",
+  "grey melange": "#9ca3af",
+  charcoal: "#374151",
+  silver: "#c0c0c0",
+  "rose gold": "#b76e79",
+  pink: "#ec4899",
+  "sky blue": "#38bdf8",
+  khaki: "#c3b091",
+  tan: "#d2b48c",
+  green: "#22c55e",
+  blue: "#3b82f6",
+}
+
 export function ProductCard({ product }: ProductCardProps) {
   const { addItem: addToCart } = useCart()
   const { addItem: addToQuote } = useQuote()
@@ -31,27 +50,52 @@ export function ProductCard({ product }: ProductCardProps) {
   // Never use random image selection during rendering.
   const smartImage =
     product.images?.find(
-      (image) =>
-        typeof image === "string" &&
-        image.trim().length > 0
+      (image) => typeof image === "string" && image.trim().length > 0
     ) ?? null
+
+  // What "add" from the card means: the first colour and size.
+  const defaultColor = product.colors[0] ?? "Standard"
+  const defaultSize = product.sizes[0] ?? "One Size"
+  const defaultVariant = product.variants?.find(
+    (variant) => variant.color === defaultColor && variant.size === defaultSize
+  )
+
+  const sku = defaultVariant?.fullCode ?? product.sku
+  const unitPrice =
+    defaultVariant && defaultVariant.price > 0
+      ? defaultVariant.price
+      : product.price
+
+  // Sizes can be priced differently, so show "From" when they are.
+  const distinctPrices = new Set(
+    (product.variants ?? []).map((v) => v.price).filter((p) => p > 0)
+  )
+  const hasPriceRange = distinctPrices.size > 1
+
+  function variantInStock() {
+    if (defaultVariant && defaultVariant.stock <= 0) {
+      toast.error("This option is currently out of stock")
+      return false
+    }
+    return true
+  }
 
   function handleAddToQuote(e: React.MouseEvent) {
     e.preventDefault()
     e.stopPropagation()
+    if (!variantInStock()) return
 
     addToQuote({
       productId: product.id,
       productName: product.name,
-      sku: product.sku,
-      price: product.price,
+      sku,
+      price: unitPrice,
       quantity: product.minOrderQty,
-      color: product.colors[0] ?? "Standard",
-      size: product.sizes[0] ?? "One Size",
+      color: defaultColor,
+      size: defaultSize,
       image: smartImage ?? "",
       brandingNotes: "",
-      brandingPosition:
-        product.brandingPositions[0]?.label ?? "",
+      brandingPosition: product.brandingPositions[0]?.label ?? "",
     })
 
     toast.success(`${product.name} added to quote basket`)
@@ -61,15 +105,16 @@ export function ProductCard({ product }: ProductCardProps) {
   function handleAddToCart(e: React.MouseEvent) {
     e.preventDefault()
     e.stopPropagation()
+    if (!variantInStock()) return
 
     addToCart({
       productId: product.id,
       productName: product.name,
-      sku: product.sku,
-      price: product.price,
+      sku,
+      price: unitPrice,
       quantity: product.minOrderQty,
-      color: product.colors[0] ?? "Standard",
-      size: product.sizes[0] ?? "One Size",
+      color: defaultColor,
+      size: defaultSize,
       image: smartImage ?? "",
     })
 
@@ -77,30 +122,11 @@ export function ProductCard({ product }: ProductCardProps) {
     setTimeout(() => router.push("/cart"), 500)
   }
 
-  const colorMap: Record<string, string> = {
-    white: "#f5f5f5",
-    navy: "#1e3a5f",
-    black: "#1a1a1a",
-    red: "#dc2626",
-    "royal blue": "#2563eb",
-    grey: "#9ca3af",
-    "grey melange": "#9ca3af",
-    charcoal: "#374151",
-    silver: "#c0c0c0",
-    "rose gold": "#b76e79",
-    pink: "#ec4899",
-    "sky blue": "#38bdf8",
-    khaki: "#c3b091",
-    tan: "#d2b48c",
-    green: "#22c55e",
-    blue: "#3b82f6",
-  }
+  const genders = product.genders ?? []
+  const hasStockInfo = typeof product.stockOnHand === "number"
 
   return (
-    <Link
-      href={`/products/${product.id}`}
-      className="block h-full"
-    >
+    <Link href={`/products/${product.id}`} className="block h-full">
       <Card className="group h-full overflow-hidden transition-colors hover:border-accent/50">
         {/* Product Image */}
         <div className="relative aspect-square overflow-hidden bg-muted">
@@ -124,25 +150,64 @@ export function ProductCard({ product }: ProductCardProps) {
           <div className="absolute left-2 top-2">
             <StockIndicator level={product.stockLevel} />
           </div>
+
+          {product.onPromotion && (
+            <Badge className="absolute right-2 top-2 border-transparent bg-orange-500 text-white">
+              On Promotion
+            </Badge>
+          )}
         </div>
 
         <CardContent className="flex flex-col gap-3 p-4">
           <div>
-            <p className="text-xs text-muted-foreground">
-              {product.sku}
-            </p>
+            {product.brand && (
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                {product.brand}
+              </p>
+            )}
 
             <h3 className="mt-1 line-clamp-2 text-sm font-semibold leading-snug text-foreground group-hover:text-accent">
               {product.name}
             </h3>
+
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+              {genders.length > 0 && <span>{genders.join(" · ")}</span>}
+              <span>{product.id}</span>
+            </div>
           </div>
+
+          {(hasStockInfo || product.sizeRange) && (
+            <div className="flex flex-col gap-0.5 text-xs text-muted-foreground">
+              {hasStockInfo && (
+                <p>
+                  Stock on hand:{" "}
+                  <span className="font-medium text-foreground">
+                    {(product.stockOnHand ?? 0).toLocaleString("en-ZA")}
+                  </span>
+                  {(product.incomingStock ?? 0) > 0 && (
+                    <>
+                      {" "}
+                      · Incoming:{" "}
+                      {(product.incomingStock ?? 0).toLocaleString("en-ZA")}
+                    </>
+                  )}
+                </p>
+              )}
+              {product.sizeRange && <p>Size: {product.sizeRange}</p>}
+            </div>
+          )}
 
           <div className="flex items-center justify-between">
             <div>
               {isAuthenticated ? (
                 <>
                   <p className="text-lg font-bold text-foreground">
-                    {formatPrice(product.price)}
+                    {hasPriceRange && (
+                      <span className="mr-1 text-xs font-normal text-muted-foreground">
+                        From
+                      </span>
+                    )}
+                    {product.price > 0 ? formatPrice(product.price) : "Price on request"}
                   </p>
 
                   <p className="text-xs text-muted-foreground">
@@ -172,8 +237,7 @@ export function ProductCard({ product }: ProductCardProps) {
                 key={color}
                 className="inline-block h-4 w-4 rounded-full border border-border"
                 style={{
-                  backgroundColor:
-                    colorMap[color.toLowerCase()] ?? "#e5e7eb",
+                  backgroundColor: colorMap[color.toLowerCase()] ?? "#e5e7eb",
                 }}
                 title={color}
                 aria-label={color}
