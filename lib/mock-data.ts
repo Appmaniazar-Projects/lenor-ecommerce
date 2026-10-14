@@ -31,6 +31,16 @@ export interface Product {
   price: number
   stock: number
 }[]
+  categoryName?: string
+  brand?: string | null
+  genders?: string[]
+  material?: string | null
+  fit?: string | null
+  onPromotion?: boolean
+  sizeRange?: string | null
+  stockOnHand?: number
+  incomingStock?: number
+  colorImages?: Record<string, string[]>
 }
 
 /* ------------------------------------------------------------------ */

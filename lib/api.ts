@@ -39,6 +39,7 @@ export interface ProductFilters {
   stockOnly?: boolean
   page?: number
   perPage?: number
+  featured?: boolean
 }
 
 export interface PaginatedProducts {
@@ -85,6 +86,7 @@ export async function getProducts(
 
   params.set("page", String(filters.page ?? 1));
   params.set("perPage", String(filters.perPage ?? 12));
+  params.set("featured", "true");
 
   if (filters.search) {
     params.set("search", filters.search);
@@ -133,11 +135,8 @@ export async function getProduct(
 }
 
 export async function getFeaturedProducts(): Promise<Product[]> {
-  const products = await fetchProducts()
-
-  return products.filter(
-    (product) => product.featured
-  )
+  const result = await getProducts({ featured: true, perPage: 8 })
+  return result.products
 }
 
 /* ------------------------------------------------------------------ */

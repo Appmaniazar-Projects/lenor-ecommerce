@@ -16,15 +16,19 @@ export function formatPrice(amount: number): string {
 }
 
 export const CATEGORIES = [
-  { id: "apparel", name: "Apparel", slug: "apparel" },
-  { id: "bags", name: "Bags", slug: "bags" },
-  { id: "drinkware", name: "Drinkware", slug: "drinkware" },
-  { id: "tech", name: "Tech Accessories", slug: "tech" },
-  { id: "stationery", name: "Stationery", slug: "stationery" },
-  { id: "outdoor", name: "Outdoor & Leisure", slug: "outdoor" },
+  { id: "corporate-gifts", name: "Corporate Gifts", slug: "corporate-gifts" },
+  { id: "hampers", name: "Hampers", slug: "hampers" },
+  { id: "gift-sets", name: "Gift Sets", slug: "gift-sets" },
+  { id: "corporate-clothing", name: "Corporate Clothing", slug: "corporate-clothing" },
+  { id: "headwear-and-accessories", name: "Headwear and Accessories", slug: "headwear-and-accessories" },
+  { id: "workwear", name: "Workwear", slug: "workwear" },
+  { id: "display", name: "Display", slug: "display" },
+  { id: "custom-products", name: "Custom Products", slug: "custom-products" },
+  { id: "collections-and-themes", name: "Collections and Themes", slug: "collections-and-themes" },
+  { id: "all-clearance-items", name: "All Clearance Items", slug: "all-clearance-items" },
 ] as const
 
-export type CategoryId = (typeof CATEGORIES)[number]["id"]
+export type CategoryId = string
 
 export const NAV_ITEMS = [
   { label: "Home", href: "/" },
