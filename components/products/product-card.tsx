@@ -129,14 +129,14 @@ export function ProductCard({ product }: ProductCardProps) {
     <Link href={`/products/${product.id}`} className="block h-full">
       <Card className="group h-full overflow-hidden transition-colors hover:border-accent/50">
         {/* Product Image */}
-        <div className="relative aspect-square overflow-hidden bg-muted">
+        <div className="relative aspect-square overflow-hidden bg-white">
           {smartImage && !imageFailed ? (
             <img
               src={smartImage}
               alt={product.name}
               loading="lazy"
               decoding="async"
-              className="h-full w-full object-cover transition-transform group-hover:scale-105"
+              className="h-full w-full object-contain p-3 transition-transform group-hover:scale-105"
               onError={() => setImageFailed(true)}
             />
           ) : (
@@ -152,7 +152,7 @@ export function ProductCard({ product }: ProductCardProps) {
           </div>
 
           {product.onPromotion && (
-            <Badge className="absolute right-2 top-2 border-transparent bg-orange-500 text-white">
+            <Badge className="absolute right-2 top-2 border-transparent bg-red-600 text-white">
               On Promotion
             </Badge>
           )}
@@ -217,7 +217,7 @@ export function ProductCard({ product }: ProductCardProps) {
               ) : (
                 <>
                   <p className="text-lg font-bold text-foreground">
-                    <span className="text-blue-600 hover:text-blue-800 hover:underline">
+                    <span className="text-primary hover:underline">
                       Sign in to see price
                     </span>
                   </p>

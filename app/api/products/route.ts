@@ -43,7 +43,10 @@ export async function GET(request: Request) {
       promotionOnly: searchParams.get("promotion") === "true",
       featured: searchParams.get("featured") === "true",
       sort:
-        sort === "price-asc" || sort === "price-desc" || sort === "name-asc"
+        sort === "price-asc" ||
+        sort === "price-desc" ||
+        sort === "name-asc" ||
+        sort === "newest"
           ? sort
           : undefined,
       page: num("page"),

@@ -123,6 +123,7 @@ export function ProductCatalog() {
               <SelectItem value="price-asc">Price: Low - High</SelectItem>
               <SelectItem value="price-desc">Price: High - Low</SelectItem>
               <SelectItem value="name-asc">Name: A - Z</SelectItem>
+              <SelectItem value="newest">Newest first</SelectItem>
             </SelectContent>
           </Select>
 

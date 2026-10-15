@@ -119,6 +119,8 @@ export interface CatalogueProduct {
   material: string | null
   fit: string | null
   onPromotion: boolean
+  /** ISO date Amrod introduced the product, e.g. 2021-06-01. */
+  introduced: string | null
   price: number
   images: string[]
   /** Images grouped by colour name (same strings used in `colors` / variants). */
@@ -168,7 +170,9 @@ export interface CatalogueQuery {
   stockOnly?: boolean
   promotionOnly?: boolean
   featured?: boolean
-  sort?: "price-asc" | "price-desc" | "name-asc"
+  sort?: "price-asc" | "price-desc" | "name-asc" | "newest"
+  /** Set false to skip facet counts (home page rows don't need them). */
+  includeFacets?: boolean
   page?: number
   perPage?: number
 }
@@ -465,6 +469,7 @@ function buildBase(raw: AmrodProduct[]): BaseProduct[] {
       material: product.material?.trim() || null,
       fit: product.fit?.trim() ? humanizeFit(product.fit.trim()) : null,
       onPromotion: product.promotion === "1",
+      introduced: product.introduced?.trim() || null,
       images,
       colorImages,
       colors: colors.length > 0 ? colors : ["Standard"],
@@ -754,7 +759,11 @@ export async function queryCatalogue(
         ? [...filtered].sort(byPrice("desc"))
         : q.sort === "name-asc"
           ? [...filtered].sort((a, b) => a.product.name.localeCompare(b.product.name))
-          : filtered
+          : q.sort === "newest"
+            ? [...filtered].sort((a, b) =>
+                (b.product.introduced ?? "").localeCompare(a.product.introduced ?? "")
+              )
+            : filtered
 
   const requestedPage = Number(q.page ?? 1)
   const requestedPerPage = Number(q.perPage ?? 12)
@@ -769,6 +778,27 @@ export async function queryCatalogue(
   const total = sorted.length
   const totalPages = Math.ceil(total / perPage)
   const start = (page - 1) * perPage
+
+  const productsPage = sorted.slice(start, start + perPage).map((i) => i.product)
+
+  if (q.includeFacets === false) {
+    return {
+      products: productsPage,
+      total,
+      page,
+      totalPages,
+      facets: {
+        categories: [],
+        brands: [],
+        genders: [],
+        colours: [],
+        sizes: [],
+        materials: [],
+        fits: [],
+        priceRange: null,
+      },
+    }
+  }
 
   // Each facet is counted with every filter EXCEPT its own, so choosing a
   // brand doesn't make the other brands disappear.
@@ -792,7 +822,7 @@ export async function queryCatalogue(
   }
 
   return {
-    products: sorted.slice(start, start + perPage).map((i) => i.product),
+    products: productsPage,
     total,
     page,
     totalPages,

@@ -1,132 +1,165 @@
 import Link from "next/link"
-import { ProductGrid } from "@/components/products"
+import { ChevronRight, FileText } from "lucide-react"
 import { SiteHeader } from "@/components/layout/site-header"
 import { SiteFooter } from "@/components/layout/site-footer"
+import { ProductTile } from "@/components/products/product-tile"
 import { Button } from "@/components/ui/button"
-import { ArrowRight, Star, Zap, Package, CheckCircle, TrendingUp, Shield } from "lucide-react"
-import { queryCatalogue } from "@/lib/catalogue"
+import { queryCatalogue, type CatalogueProduct } from "@/lib/catalogue"
+import { CATEGORIES } from "@/lib/constants"
 
-export default async function HomePage() {
-  const { products: featuredProducts } = await queryCatalogue({
-    featured: true,
+// Stock and prices change, so never freeze this page at build time.
+export const dynamic = "force-dynamic"
+
+const ROW_SIZE = 10
+
+// Category rows shown under the promotion rows. Edit freely.
+const FEATURED_CATEGORIES = [
+  "corporate-gifts",
+  "corporate-clothing",
+  "headwear-and-accessories",
+]
+
+const hasImage = (p: CatalogueProduct) => p.images.length > 0
+
+async function loadRow(query: Parameters<typeof queryCatalogue>[0]) {
+  const result = await queryCatalogue({
     page: 1,
-    perPage: 8,
+    perPage: 30,
+    stockOnly: true,
+    includeFacets: false,
+    ...query,
   })
+  return result.products.filter(hasImage).slice(0, ROW_SIZE)
+}
+
+function ProductRow({
+  title,
+  href,
+  products,
+}: {
+  title: string
+  href: string
+  products: CatalogueProduct[]
+}) {
+  if (products.length === 0) return null
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <SiteHeader />
-      
-      <main>
-        {/* Hero Section - Enhanced */}
-        <section className="bg-gradient-to-br from-blue-900 via-gray-900 to-gray-800 text-white py-20 lg:py-32 relative overflow-hidden">
-          {/* Background Pattern */}
-          <div className="absolute inset-0 opacity-10">
-            <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg%20width%3D%2260%22%20height%3D%2260%22%20viewBox%3D%220%200%2060%2060%22%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%3E%3Cg%20fill%3D%22none%22%20fill-rule%3D%22evenodd%22%3E%3Cg%20fill%3D%22%23ffffff%22%20fill-opacity%3D%220.4%22%3E%3Ccircle%20cx%3D%227%22%20cy%3D%227%22%20r%3D%227%22/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')]"></div>
+    <section className="rounded-lg bg-white p-4 shadow-sm">
+      <div className="mb-3 flex items-baseline justify-between">
+        <h2 className="text-lg font-bold text-foreground">{title}</h2>
+        <Link
+          href={href}
+          className="flex items-center text-sm font-medium text-primary hover:underline"
+        >
+          See all
+          <ChevronRight className="h-4 w-4" />
+        </Link>
+      </div>
+      <div className="-mx-1 flex snap-x gap-3 overflow-x-auto px-1 pb-2">
+        {products.map((product) => (
+          <div key={product.id} className="w-40 shrink-0 snap-start sm:w-48">
+            <ProductTile product={product} />
           </div>
-          
-          <div className="container mx-auto px-4 relative z-10">
-            <div className="max-w-6xl mx-auto">
-              <div className="grid lg:grid-cols-2 gap-12 items-center">
-                {/* Left Content */}
-                <div className="text-center lg:text-left">
-                  <div className="inline-flex items-center bg-blue-500/20 backdrop-blur-sm px-4 py-2 rounded-full mb-6">
-                    <TrendingUp className="h-4 w-4 mr-2" />
-                    <span className="text-sm font-medium">Trusted by 1000+ South African Businesses</span>
-                  </div>
-                  
-                  <h1 className="text-5xl lg:text-6xl font-bold mb-6 leading-tight tracking-tight">
-                    Premium Business
-                    <br />
-                    <span className="text-blue-400">Branding Solutions</span>
-                  </h1>
-                  
-                  <p className="text-xl text-gray-300 mb-8 leading-relaxed">
-                    Transform your brand with our curated selection of high-quality business products. 
-                    Professional branding, competitive pricing, and fast delivery across South Africa.
-                  </p>
-                  
-                  <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start mb-12">
-                    <Link href="/products">
-                      <Button 
-                        size="lg" 
-                        className="bg-blue-600 hover:bg-blue-700 text-white text-lg px-8 py-4 h-14 font-bold shadow-xl hover:shadow-2xl transition-all duration-300 rounded-xl border-2 border-blue-600 hover:border-blue-700"
-                      >
-                        Shop Now
-                        <ArrowRight className="ml-2 h-5 w-5" />
-                      </Button>
-                    </Link>
-                    <Link href="/quote-basket">
-                      <Button 
-                        variant="outline" 
-                        size="lg"
-                        className="bg-orange-500 hover:bg-orange-600 text-white border-orange-500 hover:border-orange-600 text-lg px-8 py-4 h-14 font-bold rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl"
-                      >
-                        Get Quote
-                      </Button>
-                    </Link>
-                  </div>
-                  
-                  {/* Trust Indicators */}
-                  <div className="flex flex-wrap gap-6 justify-center lg:justify-start">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className="h-5 w-5 text-green-400" />
-                      <span className="text-sm font-medium">Quality Guaranteed</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Zap className="h-5 w-5 text-yellow-400" />
-                      <span className="text-sm font-medium">Fast Turnaround</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Shield className="h-5 w-5 text-blue-400" />
-                      <span className="text-sm font-medium">Secure Payments</span>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Right Content - Feature Cards */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-white/10 backdrop-blur-sm p-6 rounded-xl border border-white/20">
-                    <Package className="h-8 w-8 text-blue-400 mb-3" />
-                    <h3 className="font-semibold text-lg mb-2">500+ Products</h3>
-                    <p className="text-sm text-gray-300">Extensive range of business products</p>
-                  </div>
-                  <div className="bg-white/10 backdrop-blur-sm p-6 rounded-xl border border-white/20">
-                    <Star className="h-8 w-8 text-yellow-400 mb-3" />
-                    <h3 className="font-semibold text-lg mb-2">4.8/5 Rating</h3>
-                    <p className="text-sm text-gray-300">Trusted by South African businesses</p>
-                  </div>
-                  <div className="bg-white/10 backdrop-blur-sm p-6 rounded-xl border border-white/20">
-                    <Zap className="h-8 w-8 text-green-400 mb-3" />
-                    <h3 className="font-semibold text-lg mb-2">24-48hr Delivery</h3>
-                    <p className="text-sm text-gray-300">Fast delivery nationwide</p>
-                  </div>
-                  <div className="bg-white/10 backdrop-blur-sm p-6 rounded-xl border border-white/20">
-                    <Shield className="h-8 w-8 text-purple-400 mb-3" />
-                    <h3 className="font-semibold text-lg mb-2">100% Secure</h3>
-                    <p className="text-sm text-gray-300">Safe payment processing</p>
-                  </div>
-                </div>
-              </div>
-            </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+export default async function HomePage() {
+  const [promotion, newest, total, ...rest] = await Promise.all([
+    loadRow({ promotionOnly: true }),
+    loadRow({ sort: "newest" }),
+    queryCatalogue({ page: 1, perPage: 1, includeFacets: false }).then((r) => r.total),
+    // One product photo per category for the tiles.
+    ...CATEGORIES.map((cat) =>
+      loadRow({ category: cat.slug, perPage: 6 }).then((p) => p.slice(0, 1))
+    ),
+    ...FEATURED_CATEGORIES.map((slug) => loadRow({ category: slug })),
+  ])
+
+  const tileImages = rest.slice(0, CATEGORIES.length)
+  const categoryRows = rest.slice(CATEGORIES.length)
+
+  return (
+    <div className="min-h-screen bg-neutral-100">
+      <SiteHeader />
+
+      <main className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 lg:px-8">
+        {/* Shop by category */}
+        <section className="rounded-lg bg-white p-4 shadow-sm">
+          <div className="mb-3 flex items-baseline justify-between">
+            <h1 className="text-lg font-bold text-foreground">Shop by category</h1>
+            <Link href="/products" className="text-sm font-medium text-primary hover:underline">
+              Browse all {total.toLocaleString("en-ZA")} products
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+            {CATEGORIES.map((cat, i) => {
+              const sample = tileImages[i]?.[0]
+              return (
+                <Link
+                  key={cat.id}
+                  href={`/products?category=${cat.slug}`}
+                  className="group flex items-center gap-3 rounded-lg border border-border p-2 transition-colors hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted">
+                    {sample ? (
+                      <img
+                        src={sample.images[0]}
+                        alt=""
+                        loading="lazy"
+                        className="h-full w-full object-contain"
+                      />
+                    ) : (
+                      <span className="text-lg font-bold text-muted-foreground/40">
+                        {cat.name.charAt(0)}
+                      </span>
+                    )}
+                  </span>
+                  <span
+                    className={`text-sm font-medium leading-tight group-hover:text-primary ${
+                      cat.slug === "all-clearance-items" ? "text-red-600" : "text-foreground"
+                    }`}
+                  >
+                    {cat.name}
+                  </span>
+                </Link>
+              )
+            })}
           </div>
         </section>
 
-        {/* Featured Products Section */}
-        <section className="py-20 bg-gradient-to-b from-gray-50 to-white">
-          <div className="container mx-auto px-4">
-            <div className="text-center mb-16">
-              <h2 className="text-4xl font-bold text-gray-900 mb-6">Featured Products</h2>
-              <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
-                Our most popular business products, ready for immediate customization and fast delivery.
-              </p>
-            </div>
-            
-            <ProductGrid products={featuredProducts.slice(0, 8)} />
+        <ProductRow title="On Promotion" href="/products?promotion=true" products={promotion} />
+        <ProductRow title="New Arrivals" href="/products?sort=newest" products={newest} />
+
+        {FEATURED_CATEGORIES.map((slug, i) => (
+          <ProductRow
+            key={slug}
+            title={CATEGORIES.find((c) => c.slug === slug)?.name ?? slug}
+            href={`/products?category=${slug}`}
+            products={categoryRows[i] ?? []}
+          />
+        ))}
+
+        {/* Branded orders go through the quote basket */}
+        <section className="flex flex-col items-start justify-between gap-3 rounded-lg bg-white p-4 shadow-sm sm:flex-row sm:items-center">
+          <div>
+            <h2 className="text-base font-bold text-foreground">Need it branded?</h2>
+            <p className="text-sm text-muted-foreground">
+              Add items to your quote basket and we will come back to you with pricing for your branding.
+            </p>
           </div>
+          <Button asChild className="bg-accent text-accent-foreground hover:bg-accent/90">
+            <Link href="/quote-basket">
+              <FileText className="mr-2 h-4 w-4" />
+              Open quote basket
+            </Link>
+          </Button>
         </section>
       </main>
-      
+
       <SiteFooter />
     </div>
   )
