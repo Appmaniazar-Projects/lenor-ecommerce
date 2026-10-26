@@ -37,4 +37,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .env
+
+.data/
+lib/api.ts.backup
 >>>>>>> f3bc146d7940b165b95f4959bd18acc1fe28fdbf

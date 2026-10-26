@@ -78,6 +78,7 @@ export interface QuoteItem {
   size: string
   brandingNotes: string
   brandingPosition: string
+  brandingMethod?: string
 }
 
 export interface QuoteRequest {
@@ -92,6 +93,7 @@ export interface QuoteRequest {
   contactName: string
   contactEmail: string
   companyName: string
+  logoFileId?: string
 }
 
 export interface UserProfile {

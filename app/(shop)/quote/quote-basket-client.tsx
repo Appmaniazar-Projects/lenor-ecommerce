@@ -33,6 +33,11 @@ import { useQuote } from "@/contexts/quote-context"
 import { submitQuoteRequest } from "@/lib/api"
 import { formatPrice } from "@/lib/constants"
 
+const [logoFileId, setLogoFileId] = useState("")
+const [logoFileName, setLogoFileName] = useState("")
+const [uploadingLogo, setUploadingLogo] = useState(false)
+const [logoUploadError, setLogoUploadError] = useState("")
+
 const quoteFormSchema = z.object({
   contactName: z.string().min(2, "Name is required"),
   contactEmail: z.string().email("Valid email required"),
@@ -59,6 +64,40 @@ export function QuoteBasketClient() {
     },
   })
 
+  async function handleLogoUpload(file?: File) {
+  if (!file) return
+
+  setLogoUploadError("")
+  setUploadingLogo(true)
+
+  try {
+    const formData = new FormData()
+    formData.append("file", file)
+
+    const response = await fetch("/api/logo-upload", {
+      method: "POST",
+      body: formData,
+    })
+
+    const result = await response.json()
+
+    if (!response.ok || !result.success || !result.fileId) {
+      throw new Error(result.error || "Logo upload failed.")
+    }
+
+    setLogoFileId(result.fileId)
+    setLogoFileName(result.fileName || file.name)
+  } catch (error) {
+    setLogoFileId("")
+    setLogoFileName("")
+    setLogoUploadError(
+      error instanceof Error ? error.message : "Logo upload failed.",
+    )
+  } finally {
+    setUploadingLogo(false)
+  }
+}
+
   async function onSubmit(data: QuoteFormValues) {
     setSubmitting(true)
     try {
@@ -73,6 +112,7 @@ export function QuoteBasketClient() {
         })),
         ...data,
         specialInstructions: data.specialInstructions ?? "",
+        logoFileId: logoFileId || undefined,
       })
       if (result.success) {
         toast.success(

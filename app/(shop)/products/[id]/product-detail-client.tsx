@@ -260,6 +260,8 @@ export function ProductDetailClient({ product }: Props) {
       brandingNotes: "",
       brandingPosition:
         product.brandingPositions[0]?.label ?? "",
+      brandingMethod: "",
+      brandingPositions: product.brandingPositions ?? [],
     })
 
     toast.success(`${product.name} added to quote basket`)

@@ -142,37 +142,81 @@ export async function getFeaturedProducts(): Promise<Product[]> {
   return result.products
 }
 
+
+/* ------------------------------------------------------------------ */
+/*  API helpers                                                        */
+/* ------------------------------------------------------------------ */
+
+async function apiRequest<T>(
+  path: string,
+  init?: RequestInit
+): Promise<T> {
+  const response = await fetch(path, {
+    ...init,
+    headers: {
+      Accept: "application/json",
+      ...(init?.body ? { "Content-Type": "application/json" } : {}),
+      ...init?.headers,
+    },
+    cache: "no-store",
+  })
+
+  const result = await response.json().catch(() => ({}))
+
+  if (!response.ok) {
+    const message =
+      typeof result?.error === "string"
+        ? result.error
+        : typeof result?.message === "string"
+          ? result.message
+          : `Request failed (${response.status})`
+
+    throw new Error(message)
+  }
+
+  return result as T
+}
+
 /* ------------------------------------------------------------------ */
 /*  Orders                                                             */
 /* ------------------------------------------------------------------ */
 
-export async function getOrders(): Promise<Order[]> {
-  await delay(200)
-  return [...MOCK_ORDERS].sort(
-    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+export async function getOrders(email?: string): Promise<Order[]> {
+  const params = new URLSearchParams()
+
+  if (email) params.set("email", email)
+
+  const query = params.size ? `?${params.toString()}` : ""
+
+  const result = await apiRequest<Order[] | { orders: Order[] }>(
+    `/api/orders${query}`
   )
+
+  return Array.isArray(result) ? result : result.orders
 }
 
 export async function getOrder(id: string): Promise<Order | null> {
-  await delay(150)
-  return MOCK_ORDERS.find((o) => o.id === id) ?? null
+  try {
+    const result = await apiRequest<Order | { order: Order }>(
+      `/api/orders/${encodeURIComponent(id)}`
+    )
+
+    return "order" in result ? result.order : result
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      /404|not found/i.test(error.message)
+    ) {
+      return null
+    }
+
+    throw error
+  }
 }
 
 /* ------------------------------------------------------------------ */
 /*  Quote Requests                                                     */
 /* ------------------------------------------------------------------ */
-
-export async function getQuotes(): Promise<QuoteRequest[]> {
-  await delay(200)
-  return [...MOCK_QUOTES].sort(
-    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-  )
-}
-
-export async function getQuote(id: string): Promise<QuoteRequest | null> {
-  await delay(150)
-  return MOCK_QUOTES.find((q) => q.id === id) ?? null
-}
 
 export interface SubmitQuoteData {
   items: {
@@ -188,14 +232,70 @@ export interface SubmitQuoteData {
   companyName: string
   deadline: string
   specialInstructions: string
+  logoFileId?: string
+}
+
+
+export async function getQuotes(email?: string): Promise<QuoteRequest[]> {
+  const params = new URLSearchParams()
+
+  if (email) params.set("email", email)
+
+  const query = params.size ? `?${params.toString()}` : ""
+
+  const result = await apiRequest<
+    QuoteRequest[] | { quotes: QuoteRequest[] }
+  >(`/api/quotes${query}`)
+
+  return Array.isArray(result) ? result : result.quotes
+}
+
+export async function getQuote(
+  id: string
+): Promise<QuoteRequest | null> {
+  try {
+    const result = await apiRequest<
+      QuoteRequest | { quote: QuoteRequest }
+    >(`/api/quotes/${encodeURIComponent(id)}`)
+
+    return "quote" in result ? result.quote : result
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      /404|not found/i.test(error.message)
+    ) {
+      return null
+    }
+
+    throw error
+  }
 }
 
 export async function submitQuoteRequest(
-  _data: SubmitQuoteData
+  data: SubmitQuoteData
 ): Promise<{ success: boolean; quoteNumber: string }> {
-  await delay(500)
-  const num = Math.floor(Math.random() * 900) + 100
-  return { success: true, quoteNumber: `QR-2026-${num}` }
+  const result = await apiRequest<{
+    success?: boolean
+    quoteNumber?: string
+    quote?: { quoteNumber?: string; id?: string }
+  }>("/api/quotes", {
+    method: "POST",
+    body: JSON.stringify(data),
+  })
+
+  const quoteNumber =
+    result.quoteNumber ??
+    result.quote?.quoteNumber ??
+    result.quote?.id
+
+  if (!quoteNumber) {
+    throw new Error("Quote was submitted but no quote number was returned.")
+  }
+
+  return {
+    success: result.success ?? true,
+    quoteNumber,
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -218,11 +318,46 @@ export interface CheckoutData {
 }
 
 export async function createOrder(
-  _data: CheckoutData
+  data: CheckoutData
 ): Promise<{ success: boolean; orderNumber: string }> {
-  await delay(500)
-  const num = Math.floor(Math.random() * 900) + 100
-  return { success: true, orderNumber: `LNR-2026-${num}` }
+  // Never trust a price supplied by the browser.
+  // The checkout API must look up current prices and stock itself.
+  const payload = {
+    items: data.items.map(({ productId, quantity, color, size }) => ({
+      productId,
+      quantity,
+      color,
+      size,
+    })),
+    billingAddress: data.billingAddress,
+    shippingAddress: data.shippingAddress,
+    contactName: data.contactName,
+    contactEmail: data.contactEmail,
+    contactPhone: data.contactPhone,
+  }
+
+  const result = await apiRequest<{
+    success?: boolean
+    orderNumber?: string
+    order?: { orderNumber?: string; id?: string }
+  }>("/api/checkout", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  })
+
+  const orderNumber =
+    result.orderNumber ??
+    result.order?.orderNumber ??
+    result.order?.id
+
+  if (!orderNumber) {
+    throw new Error("Order was created but no order number was returned.")
+  }
+
+  return {
+    success: result.success ?? true,
+    orderNumber,
+  }
 }
 
 /* ------------------------------------------------------------------ */

@@ -96,6 +96,7 @@ export function ProductCard({ product }: ProductCardProps) {
       image: smartImage ?? "",
       brandingNotes: "",
       brandingPosition: product.brandingPositions[0]?.label ?? "",
+      brandingMethod: "",
     })
 
     toast.success(`${product.name} added to quote basket`)
@@ -116,6 +117,9 @@ export function ProductCard({ product }: ProductCardProps) {
       color: defaultColor,
       size: defaultSize,
       image: smartImage ?? "",
+      brandingNotes: "",
+      brandingPosition: product.brandingPositions[0]?.label ?? "",
+      brandingMethod: "",
     })
 
     toast.success(`${product.name} added to cart`)

@@ -24,6 +24,12 @@ export interface QuoteBasketItem {
   image: string
   brandingNotes: string
   brandingPosition: string
+  brandingMethod: string
+  brandingPositions?: {
+    id: string
+    label: string
+    description: string
+  }[]
 }
 
 interface QuoteState {
