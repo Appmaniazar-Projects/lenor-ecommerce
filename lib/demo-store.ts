@@ -1,7 +1,10 @@
-
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises"
 import path from "node:path"
 
+/**
+ * Simple JSON-file storage under .data/. Fine for one server process on the
+ * VPS; move to a database (e.g. Supabase) before running several instances.
+ */
 const dataDirectory = path.join(process.cwd(), ".data")
 
 export async function readCollection<T>(name: string): Promise<T[]> {
@@ -34,8 +37,34 @@ export async function writeCollection<T>(
   await mkdir(dataDirectory, { recursive: true })
 
   const filePath = path.join(dataDirectory, `${name}.json`)
-  const temporaryPath = `${filePath}.tmp`
+  const temporaryPath = `${filePath}.${process.pid}.tmp`
 
-  await writeFile(temporaryPath, JSON.stringify(records, null, 2), "utf8")
+  await writeFile(temporaryPath, JSON.stringify(records, null, 2), {
+    encoding: "utf8",
+    mode: 0o600,
+  })
   await rename(temporaryPath, filePath)
+}
+
+// Writes to the same file are queued, so two requests arriving together
+// can't overwrite each other's records.
+const queues = new Map<string, Promise<unknown>>()
+
+export function updateCollection<T, R>(
+  name: string,
+  change: (records: T[]) => R | Promise<R>,
+): Promise<R> {
+  const previous = queues.get(name) ?? Promise.resolve()
+
+  const next = previous
+    .catch(() => undefined)
+    .then(async () => {
+      const records = await readCollection<T>(name)
+      const result = await change(records)
+      await writeCollection(name, records)
+      return result
+    })
+
+  queues.set(name, next)
+  return next
 }

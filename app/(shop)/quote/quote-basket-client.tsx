@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
@@ -14,6 +14,8 @@ import {
   Upload,
   Loader2,
   ShoppingBag,
+  CheckCircle2,
+  X,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -29,29 +31,57 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { QuantitySelector } from "@/components/products/quantity-selector"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { useQuote } from "@/contexts/quote-context"
+import { useAuth } from "@/contexts/auth-context"
 import { submitQuoteRequest } from "@/lib/api"
 import { formatPrice } from "@/lib/constants"
-
-const [logoFileId, setLogoFileId] = useState("")
-const [logoFileName, setLogoFileName] = useState("")
-const [uploadingLogo, setUploadingLogo] = useState(false)
-const [logoUploadError, setLogoUploadError] = useState("")
 
 const quoteFormSchema = z.object({
   contactName: z.string().min(2, "Name is required"),
   contactEmail: z.string().email("Valid email required"),
   companyName: z.string().min(2, "Company name is required"),
-  deadline: z.string().min(1, "Please select a deadline"),
+  deadline: z
+    .string()
+    .min(1, "Please select a deadline")
+    .refine((value) => value >= todayIso(), "Choose today or a later date"),
   specialInstructions: z.string().optional(),
 })
 
 type QuoteFormValues = z.infer<typeof quoteFormSchema>
 
+function todayIso() {
+  const now = new Date()
+  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60_000)
+  return local.toISOString().slice(0, 10)
+}
+
+const ACCEPTED_LOGO_TYPES =
+  ".ai,.eps,.pdf,.svg,.png,.jpg,.jpeg,.webp,.tif,.tiff"
+const MAX_LOGO_MB = 20
+
 export function QuoteBasketClient() {
   const { items, itemCount, estimatedSubtotal, removeItem, updateQuantity, updateItem, clearQuote } = useQuote()
+  const { user, isAuthenticated } = useAuth()
   const router = useRouter()
   const [submitting, setSubmitting] = useState(false)
+  const [submittedNumber, setSubmittedNumber] = useState("")
+
+  const [logoFileId, setLogoFileId] = useState("")
+  const [logoFileName, setLogoFileName] = useState("")
+  const [logoKind, setLogoKind] = useState<"vector" | "raster" | "">("")
+  const [uploadingLogo, setUploadingLogo] = useState(false)
+  const [logoUploadError, setLogoUploadError] = useState("")
+  const [dragging, setDragging] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const showPrices = isAuthenticated && items.every((i) => i.price > 0)
 
   const form = useForm<QuoteFormValues>({
     resolver: zodResolver(quoteFormSchema),
@@ -64,8 +94,31 @@ export function QuoteBasketClient() {
     },
   })
 
+  // Fill in contact details for signed-in customers.
+  useEffect(() => {
+    if (!user) return
+    const values = form.getValues()
+    if (!values.contactName) form.setValue("contactName", user.name)
+    if (!values.contactEmail) form.setValue("contactEmail", user.email)
+    if (!values.companyName) form.setValue("companyName", user.companyName)
+  }, [user, form])
+
+  function clearLogo() {
+    setLogoFileId("")
+    setLogoFileName("")
+    setLogoKind("")
+    setLogoUploadError("")
+    if (fileInputRef.current) fileInputRef.current.value = ""
+  }
+
   async function handleLogoUpload(file?: File) {
   if (!file) return
+
+  if (file.size > MAX_LOGO_MB * 1024 * 1024) {
+    clearLogo()
+    setLogoUploadError(`The file must be ${MAX_LOGO_MB} MB or smaller.`)
+    return
+  }
 
   setLogoUploadError("")
   setUploadingLogo(true)
@@ -79,7 +132,7 @@ export function QuoteBasketClient() {
       body: formData,
     })
 
-    const result = await response.json()
+    const result = await response.json().catch(() => ({}))
 
     if (!response.ok || !result.success || !result.fileId) {
       throw new Error(result.error || "Logo upload failed.")
@@ -87,9 +140,9 @@ export function QuoteBasketClient() {
 
     setLogoFileId(result.fileId)
     setLogoFileName(result.fileName || file.name)
+    setLogoKind(result.kind === "vector" ? "vector" : "raster")
   } catch (error) {
-    setLogoFileId("")
-    setLogoFileName("")
+    clearLogo()
     setLogoUploadError(
       error instanceof Error ? error.message : "Logo upload failed.",
     )
@@ -114,18 +167,53 @@ export function QuoteBasketClient() {
         specialInstructions: data.specialInstructions ?? "",
         logoFileId: logoFileId || undefined,
       })
-      if (result.success) {
-        toast.success(
-          `Quote request ${result.quoteNumber} submitted! Our team will respond within 24 hours.`
-        )
-        clearQuote()
-        router.push("/orders")
+      toast.success(`Quote request ${result.quoteNumber} submitted.`)
+      clearQuote()
+      clearLogo()
+
+      if (isAuthenticated && result.id) {
+        router.push(`/orders/${result.id}`)
+      } else {
+        setSubmittedNumber(result.quoteNumber)
       }
-    } catch {
-      toast.error("Failed to submit quote. Please try again.")
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to submit quote. Please try again."
+      )
     } finally {
       setSubmitting(false)
     }
+  }
+
+  if (submittedNumber) {
+    return (
+      <div className="mx-auto max-w-7xl px-4 py-16 lg:px-8">
+        <div className="flex flex-col items-center justify-center text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
+            <CheckCircle2 className="h-8 w-8 text-green-600" />
+          </div>
+          <h1 className="mt-4 text-2xl font-bold text-foreground">
+            Quote request sent
+          </h1>
+          <p className="mt-2 text-muted-foreground">
+            Your reference is{" "}
+            <span className="font-semibold text-foreground">{submittedNumber}</span>.
+            Lenor will contact you with a formal quotation.
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Create an account to track your quotes online next time.
+          </p>
+          <div className="mt-6 flex gap-3">
+            <Button asChild>
+              <Link href="/products">Keep browsing</Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link href="/register">Create an account</Link>
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   if (items.length === 0) {
@@ -179,11 +267,18 @@ export function QuoteBasketClient() {
               <Card key={`${item.productId}-${item.color}-${item.size}`}>
                 <CardContent className="p-4">
                   <div className="flex flex-col gap-4 sm:flex-row">
-                    {/* Image placeholder */}
-                    <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-md bg-muted">
-                      <span className="text-lg font-bold text-muted-foreground/30">
-                        {item.productName.charAt(0)}
-                      </span>
+                    <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted">
+                      {item.image ? (
+                        <img
+                          src={item.image}
+                          alt={item.productName}
+                          className="h-full w-full object-contain"
+                        />
+                      ) : (
+                        <span className="text-lg font-bold text-muted-foreground/30">
+                          {item.productName.charAt(0)}
+                        </span>
+                      )}
                     </div>
 
                     <div className="flex flex-1 flex-col gap-3">
@@ -199,7 +294,9 @@ export function QuoteBasketClient() {
                             {item.sku} | {item.color} | {item.size}
                           </p>
                           <p className="mt-1 text-sm font-medium text-foreground">
-                            {formatPrice(item.price)} per unit
+                            {showPrices
+                              ? `${formatPrice(item.price)} per unit`
+                              : "Price confirmed in your quotation"}
                           </p>
                         </div>
                         <Button
@@ -227,16 +324,46 @@ export function QuoteBasketClient() {
                             )
                           }
                         />
-                        <span className="text-sm text-muted-foreground">
-                          = {formatPrice(item.price * item.quantity)}
-                        </span>
+                        {showPrices && (
+                          <span className="text-sm text-muted-foreground">
+                            = {formatPrice(item.price * item.quantity)}
+                          </span>
+                        )}
                       </div>
 
                       {/* Branding notes */}
                       <div className="flex flex-col gap-1.5">
                         <label className="text-xs font-medium text-foreground">
-                          Branding Position: {item.brandingPosition || "Not specified"}
+                          Branding position
                         </label>
+                        {item.brandingPositions && item.brandingPositions.length > 0 ? (
+                          <Select
+                            value={item.brandingPosition || undefined}
+                            onValueChange={(value) =>
+                              updateItem({
+                                productId: item.productId,
+                                color: item.color,
+                                size: item.size,
+                                brandingPosition: value,
+                              })
+                            }
+                          >
+                            <SelectTrigger className="h-9 w-full sm:w-64">
+                              <SelectValue placeholder="Choose a position" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {item.brandingPositions.map((position) => (
+                                <SelectItem key={position.id} value={position.label}>
+                                  {position.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">
+                            {item.brandingPosition || "Describe where you want your logo in the notes below."}
+                          </p>
+                        )}
                         <Textarea
                           placeholder="Add branding notes (e.g., logo colour, placement details)..."
                           value={item.brandingNotes}
@@ -267,18 +394,86 @@ export function QuoteBasketClient() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-border bg-muted/30 p-8 text-center">
-                <Upload className="h-8 w-8 text-muted-foreground" />
-                <p className="mt-2 text-sm font-medium text-foreground">
-                  Drag and drop your logo here
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept={ACCEPTED_LOGO_TYPES}
+                className="sr-only"
+                id="logo-file"
+                onChange={(e) => void handleLogoUpload(e.target.files?.[0])}
+              />
+              {logoFileId ? (
+                <div className="flex flex-col gap-2 rounded-lg border border-border bg-muted/30 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <CheckCircle2 className="h-5 w-5 shrink-0 text-green-600" />
+                      <span className="truncate text-sm font-medium text-foreground">
+                        {logoFileName}
+                      </span>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Remove logo"
+                      onClick={clearLogo}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  {logoKind === "raster" && (
+                    <p className="text-xs text-amber-700">
+                      This is an image file. Screen print, pad print, laser engraving
+                      and debossing need vector artwork (AI, EPS, PDF or SVG). Lenor
+                      will ask for one if your branding method needs it.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div
+                  onDragOver={(e) => {
+                    e.preventDefault()
+                    setDragging(true)
+                  }}
+                  onDragLeave={() => setDragging(false)}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    setDragging(false)
+                    void handleLogoUpload(e.dataTransfer.files?.[0])
+                  }}
+                  className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 text-center transition-colors ${
+                    dragging ? "border-accent bg-accent/5" : "border-border bg-muted/30"
+                  }`}
+                >
+                  {uploadingLogo ? (
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  ) : (
+                    <Upload className="h-8 w-8 text-muted-foreground" />
+                  )}
+                  <p className="mt-2 text-sm font-medium text-foreground">
+                    {uploadingLogo ? "Uploading..." : "Drag and drop your logo here"}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    AI, EPS, PDF, SVG (vector preferred), PNG, JPG, WebP or TIFF, up to{" "}
+                    {MAX_LOGO_MB} MB
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-4"
+                    disabled={uploadingLogo}
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    Choose File
+                  </Button>
+                </div>
+              )}
+              {logoUploadError && (
+                <p className="mt-2 text-sm text-destructive" role="alert">
+                  {logoUploadError}
                 </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Accepted formats: AI, EPS, PDF, PNG, SVG (vector preferred)
-                </p>
-                <Button variant="outline" size="sm" className="mt-4">
-                  Choose File
-                </Button>
-              </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -296,7 +491,7 @@ export function QuoteBasketClient() {
                     Estimated subtotal
                   </span>
                   <span className="font-medium text-foreground">
-                    {formatPrice(estimatedSubtotal)}
+                    {showPrices ? formatPrice(estimatedSubtotal) : "On quotation"}
                   </span>
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">
@@ -362,7 +557,7 @@ export function QuoteBasketClient() {
                       <FormItem>
                         <FormLabel>Required By Date</FormLabel>
                         <FormControl>
-                          <Input type="date" {...field} />
+                          <Input type="date" min={todayIso()} {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -388,7 +583,7 @@ export function QuoteBasketClient() {
                   <Button
                     type="submit"
                     className="w-full bg-accent text-accent-foreground hover:bg-accent/90"
-                    disabled={submitting}
+                    disabled={submitting || uploadingLogo}
                   >
                     {submitting && (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />

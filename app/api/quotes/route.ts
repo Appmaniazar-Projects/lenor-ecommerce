@@ -1,15 +1,20 @@
 
 import { randomUUID } from "node:crypto"
 import { NextResponse } from "next/server"
+import { getSessionUser } from "@/lib/auth"
 import { getProductById } from "@/lib/catalogue"
 import type { QuoteRequest } from "@/lib/mock-data"
-import { readCollection, writeCollection } from "@/lib/demo-store"
+import { readCollection, updateCollection } from "@/lib/demo-store"
+import { findUpload } from "@/lib/uploads"
+import {
+  canView,
+  publicRecord,
+  sortNewestFirst,
+  type StoredQuote,
+} from "@/lib/records"
 
 export const runtime = "nodejs"
-
-type StoredQuote = QuoteRequest & {
-  items: QuoteRequest["items"]
-}
+export const dynamic = "force-dynamic"
 
 type QuoteBody = {
   items?: {
@@ -29,20 +34,23 @@ type QuoteBody = {
   specialInstructions?: string
 }
 
-const text = (value: unknown) =>
-  typeof value === "string" ? value.trim() : ""
+const text = (value: unknown, max = 500) =>
+  typeof value === "string" ? value.trim().slice(0, max) : ""
 
-export async function GET(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url)
-    const email = searchParams.get("email")?.trim().toLowerCase()
-    const quotes = await readCollection<StoredQuote>("quotes")
+export async function GET() {
+  const user = await getSessionUser()
 
+  if (!user) {
     return NextResponse.json(
-      email
-        ? quotes.filter((quote) => quote.contactEmail.toLowerCase() === email)
-        : quotes,
+      { error: "Sign in to see your quote requests." },
+      { status: 401 },
     )
+  }
+
+  try {
+    const quotes = await readCollection<StoredQuote>("quotes")
+    const visible = quotes.filter((quote) => canView(quote, user))
+    return NextResponse.json(sortNewestFirst(visible).map(publicRecord))
   } catch (error) {
     console.error("Failed to load quotes:", error)
     return NextResponse.json(
@@ -54,7 +62,8 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as QuoteBody
+    const user = await getSessionUser()
+    const body = (await request.json().catch(() => ({}))) as QuoteBody
 
     if (
       !Array.isArray(body.items) ||
@@ -67,9 +76,10 @@ export async function POST(request: Request) {
       )
     }
 
-    const contactName = text(body.contactName)
-    const contactEmail = text(body.contactEmail).toLowerCase()
-    const companyName = text(body.companyName)
+    const contactName = text(body.contactName, 120)
+    const contactEmail = text(body.contactEmail, 200).toLowerCase()
+    const companyName = text(body.companyName, 200)
+    const deadline = text(body.deadline, 10)
 
     if (
       !contactName ||
@@ -78,6 +88,23 @@ export async function POST(request: Request) {
     ) {
       return NextResponse.json(
         { error: "Contact name, a valid email and company name are required." },
+        { status: 400 },
+      )
+    }
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(deadline) || Number.isNaN(Date.parse(deadline))) {
+      return NextResponse.json(
+        { error: "Choose the date you need the items by." },
+        { status: 400 },
+      )
+    }
+
+    const logoFileId = text(body.logoFileId, 64)
+    const logo = logoFileId ? await findUpload(logoFileId) : null
+
+    if (logoFileId && !logo) {
+      return NextResponse.json(
+        { error: "The uploaded logo could not be found. Please upload it again." },
         { status: 400 },
       )
     }
@@ -133,38 +160,41 @@ export async function POST(request: Request) {
         quantity,
         color: variant.color,
         size: variant.size,
-        brandingNotes: text(item.brandingNotes),
-        brandingPosition: text(item.brandingPosition),
+        brandingNotes: text(item.brandingNotes, 1000),
+        brandingPosition: text(item.brandingPosition, 120),
+        brandingMethod: text(item.brandingMethod, 120) || undefined,
       })
     }
 
     const id = randomUUID()
     const year = new Date().getFullYear()
 
-    const quote: QuoteRequest = {
+    const quote: StoredQuote = {
       id,
       quoteNumber: `QR-${year}-${id.slice(0, 8).toUpperCase()}`,
       date: new Date().toISOString(),
       status: "Pending",
       items: quoteItems,
-      deadline: text(body.deadline),
-      specialInstructions: text(body.specialInstructions),
+      deadline,
+      specialInstructions: text(body.specialInstructions, 2000),
       estimatedTotal: null,
       contactName,
       contactEmail,
       companyName,
-      logoFileId: text(body.logoFileId) || undefined,
+      logoFileId: logo?.id,
+      logoFileName: logo?.fileName,
+      userId: user?.id ?? null,
     }
 
-    const quotes = await readCollection<QuoteRequest>("quotes")
-    quotes.push(quote)
-    await writeCollection("quotes", quotes)
+    await updateCollection<StoredQuote, void>("quotes", (quotes) => {
+      quotes.push(quote)
+    })
 
     return NextResponse.json(
       {
         success: true,
         quoteNumber: quote.quoteNumber,
-        quote,
+        quote: publicRecord(quote),
         message: "Quote request saved successfully.",
       },
       { status: 201 },

@@ -1,24 +1,21 @@
-# v0 runtime files (should only exist in preview, not in git)
-__v0_runtime_loader.js
-__v0_devtools.tsx
-__v0_jsx-dev-runtime.ts
-
-<<<<<<< HEAD
-# Common ignores
-node_modules/
-.next/
-.env*.local
-.DS_Store
-=======
 # dependencies
 /node_modules
 
 # next.js
 /.next/
 /out/
-
-# production
 /build
+next-env.d.ts
+*.tsbuildinfo
+
+# Lenor runtime data: customers, orders, quotes, logos, session secret.
+# Never commit this. Back it up from the server instead.
+/.data/
+
+# env files (keep .env.example)
+.env
+.env*.local
+.env.production
 
 # debug
 npm-debug.log*
@@ -26,18 +23,11 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files
-.env*
-.env.local
-
-# vercel
+# misc
+.DS_Store
 .vercel
 
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-.env
-
-.data/
-lib/api.ts.backup
->>>>>>> f3bc146d7940b165b95f4959bd18acc1fe28fdbf
+# v0 runtime files
+__v0_runtime_loader.js
+__v0_devtools.tsx
+__v0_jsx-dev-runtime.ts

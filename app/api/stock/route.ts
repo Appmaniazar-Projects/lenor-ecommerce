@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getAmrodStock } from "@/lib/amrod";
 
+export const runtime = "nodejs";
+
 export async function GET() {
   try {
     const stock = await getAmrodStock();
@@ -10,9 +12,7 @@ export async function GET() {
     console.error("Failed to fetch stock from Amrod:", error);
 
     return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : String(error),
-      },
+      { error: "Stock is temporarily unavailable." },
       { status: 500 }
     );
   }

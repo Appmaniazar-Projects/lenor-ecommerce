@@ -11,7 +11,7 @@ import { Suspense } from "react"
 
 function CheckoutSuccessContent() {
   const searchParams = useSearchParams()
-  const orderNumber = searchParams.get("order") || "LNR-2026-001"
+  const orderNumber = searchParams.get("order")
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -27,13 +27,15 @@ function CheckoutSuccessContent() {
                   <CheckCircle className="h-10 w-10 text-green-600" />
                 </div>
               </div>
-              <h1 className="text-4xl font-bold text-gray-900 mb-4">Order Confirmed!</h1>
+              <h1 className="text-4xl font-bold text-gray-900 mb-4">Order Received</h1>
               <p className="text-xl text-gray-600 mb-2">
                 Thank you for your order
               </p>
-              <p className="text-lg font-semibold text-gray-900">
-                Order #{orderNumber}
-              </p>
+              {orderNumber && (
+                <p className="text-lg font-semibold text-gray-900">
+                  Order #{orderNumber}
+                </p>
+              )}
             </div>
 
             {/* Order Details */}
@@ -42,11 +44,11 @@ function CheckoutSuccessContent() {
                 <div className="text-center space-y-4">
                   <div className="flex items-center justify-center gap-2 text-green-600">
                     <CheckCircle className="h-5 w-5" />
-                    <span className="font-semibold">Payment Processing</span>
+                    <span className="font-semibold">Awaiting confirmation</span>
                   </div>
                   <p className="text-gray-600">
-                    Your order has been successfully placed and is now being processed. 
-                    You will receive a confirmation email shortly with your order details and payment information.
+                    Your order has been saved. Lenor will confirm stock and send you an
+                    invoice with payment details.
                   </p>
                   
                   <div className="bg-gray-50 rounded-lg p-6 text-left">
@@ -58,7 +60,7 @@ function CheckoutSuccessContent() {
                         </div>
                         <div>
                           <p className="font-medium text-gray-900">Order Confirmation</p>
-                          <p className="text-sm text-gray-600">You'll receive an email with your order details and invoice</p>
+                          <p className="text-sm text-gray-600">Lenor checks stock and confirms your order</p>
                         </div>
                       </div>
                       <div className="flex items-start gap-3">
@@ -66,8 +68,8 @@ function CheckoutSuccessContent() {
                           <span className="text-xs font-bold text-blue-600">2</span>
                         </div>
                         <div>
-                          <p className="font-medium text-gray-900">Payment Processing</p>
-                          <p className="text-sm text-gray-600">We'll process your payment via PayFast securely</p>
+                          <p className="font-medium text-gray-900">Payment</p>
+                          <p className="text-sm text-gray-600">You pay the invoice Lenor sends you</p>
                         </div>
                       </div>
                       <div className="flex items-start gap-3">

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { getOrder, getQuote } from "@/lib/api"
+import { useAuth } from "@/contexts/auth-context"
 import { formatPrice } from "@/lib/constants"
 import type { Order, QuoteRequest } from "@/lib/mock-data"
 import { OrderStatusBadge, QuoteStatusBadge } from "@/components/orders/status-badges"
@@ -25,21 +26,48 @@ export function OrderDetailClient({ id }: { id: string }) {
   const [quote, setQuote] = useState<QuoteRequest | null>(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    async function load() {
-      if (id.startsWith("ord-")) {
-        const o = await getOrder(id)
-        setOrder(o)
-      } else if (id.startsWith("qr-")) {
-        const q = await getQuote(id)
-        setQuote(q)
-      }
-      setLoading(false)
-    }
-    load()
-  }, [id])
+  const { isAuthenticated, isLoading: authLoading } = useAuth()
 
-  if (loading) {
+  useEffect(() => {
+    if (authLoading) return
+    if (!isAuthenticated) {
+      setLoading(false)
+      return
+    }
+
+    // IDs are UUIDs for both orders and quotes, so try orders first.
+    async function load() {
+      try {
+        const o = await getOrder(id)
+        if (o) {
+          setOrder(o)
+          return
+        }
+        setQuote(await getQuote(id))
+      } catch {
+        // Shown as "Not Found" below.
+      } finally {
+        setLoading(false)
+      }
+    }
+    void load()
+  }, [id, authLoading, isAuthenticated])
+
+  if (!authLoading && !isAuthenticated) {
+    return (
+      <div className="mx-auto max-w-4xl px-4 py-16 text-center lg:px-8">
+        <h1 className="text-2xl font-bold text-foreground">Sign in required</h1>
+        <p className="mt-2 text-muted-foreground">
+          Sign in to see your orders and quote requests.
+        </p>
+        <Button className="mt-6" asChild>
+          <Link href={`/login?next=${encodeURIComponent(`/orders/${id}`)}`}>Sign In</Link>
+        </Button>
+      </div>
+    )
+  }
+
+  if (loading || authLoading) {
     return (
       <div className="mx-auto max-w-4xl px-4 py-8 lg:px-8">
         <Skeleton className="mb-4 h-8 w-48" />
@@ -131,7 +159,7 @@ export function OrderDetailClient({ id }: { id: string }) {
               <CardTitle>Shipping Address</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">{order.shippingAddress}</p>
+              <p className="whitespace-pre-line text-sm text-muted-foreground">{order.shippingAddress}</p>
             </CardContent>
           </Card>
         </div>
@@ -186,7 +214,9 @@ export function OrderDetailClient({ id }: { id: string }) {
                       </TableCell>
                       <TableCell className="text-right">{item.quantity}</TableCell>
                       <TableCell className="text-muted-foreground">
-                        {item.brandingPosition}
+                        {[item.brandingPosition, item.brandingMethod]
+                          .filter(Boolean)
+                          .join(" · ") || "-"}
                       </TableCell>
                       <TableCell className="max-w-[200px] truncate text-muted-foreground">
                         {item.brandingNotes}
@@ -230,6 +260,17 @@ export function OrderDetailClient({ id }: { id: string }) {
                   <span className="font-medium text-foreground">Deadline:</span>{" "}
                   {new Date(quote.deadline).toLocaleDateString("en-ZA")}
                 </p>
+                {quote.logoFileId && (
+                  <p>
+                    <span className="font-medium text-foreground">Logo:</span>{" "}
+                    <a
+                      href={`/api/logo-upload/${quote.logoFileId}`}
+                      className="text-primary hover:underline"
+                    >
+                      {(quote as { logoFileName?: string }).logoFileName ?? "Download"}
+                    </a>
+                  </p>
+                )}
                 {quote.specialInstructions && (
                   <p>
                     <span className="font-medium text-foreground">Instructions:</span>{" "}

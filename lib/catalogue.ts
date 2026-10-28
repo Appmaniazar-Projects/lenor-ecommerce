@@ -1,3 +1,5 @@
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises"
+import path from "node:path"
 import {
   getAmrodProducts,
   getAmrodPrices,
@@ -214,6 +216,7 @@ interface CatalogueState {
   lastRawProducts: AmrodProduct[] | null
   builtAt: number
   refreshing: Promise<void> | null
+  snapshotTried?: boolean
 }
 
 const g = globalThis as typeof globalThis & {
@@ -534,6 +537,43 @@ function enrich(
   }
 }
 
+/**
+ * Amrod sends several stock rows per item: type 0 is the base-product total,
+ * type 1 the per-colour total, type 2 the per-variant figure. Only type 2 is
+ * meant for availability, so adding the rows together inflates stock.
+ * A variant with no type-2 row falls back to its largest single row.
+ */
+function buildStockMap(
+  rows: AmrodStock[]
+): Map<string, { stock: number; incoming: number }> {
+  const variantRows = new Map<string, { stock: number; incoming: number }>()
+  const fallback = new Map<string, { stock: number; incoming: number }>()
+
+  for (const row of rows) {
+    if (!row?.fullCode) continue
+    const available = Math.max(0, Number(row.stock) || 0)
+    const incoming = Math.max(0, Number(row.incomingStock) || 0)
+
+    if (Number(row.stockType) === 2) {
+      const existing = variantRows.get(row.fullCode) ?? { stock: 0, incoming: 0 }
+      existing.stock += available
+      existing.incoming += incoming
+      variantRows.set(row.fullCode, existing)
+    } else {
+      const existing = fallback.get(row.fullCode)
+      if (!existing || available > existing.stock) {
+        fallback.set(row.fullCode, { stock: available, incoming })
+      }
+    }
+  }
+
+  for (const [code, value] of fallback) {
+    if (!variantRows.has(code)) variantRows.set(code, value)
+  }
+
+  return variantRows
+}
+
 async function loadCatalogue(): Promise<void> {
   const started = performance.now()
 
@@ -555,13 +595,7 @@ async function loadCatalogue(): Promise<void> {
     priceMap.set(item.fullCode, item.price)
   }
 
-  const stockMap = new Map<string, { stock: number; incoming: number }>()
-  for (const item of stock ?? []) {
-    const existing = stockMap.get(item.fullCode) ?? { stock: 0, incoming: 0 }
-    existing.stock += item.stock ?? 0
-    existing.incoming += item.incomingStock ?? 0
-    stockMap.set(item.fullCode, existing)
-  }
+  const stockMap = buildStockMap(stock ?? [])
 
   const items = state.base.map((b) => enrich(b, priceMap, stockMap))
   const byId = new Map(items.map((item) => [item.product.id, item]))
@@ -570,11 +604,57 @@ async function loadCatalogue(): Promise<void> {
   state.byId = byId
   state.builtAt = Date.now()
 
+  void saveSnapshot(items)
+
   console.log(
     `Lenor: catalogue rebuilt (${items.length} products) in ${(
       performance.now() - started
     ).toFixed(0)} ms`
   )
+}
+
+/* ------------------------------------------------------------------ */
+/*  Disk snapshot: lets a restarted server answer straight away, even  */
+/*  during Amrod's nightly maintenance window.                          */
+/* ------------------------------------------------------------------ */
+
+const SNAPSHOT_PATH = path.join(process.cwd(), ".data", "catalogue-snapshot.json")
+const SNAPSHOT_EVERY_MS = 10 * 60_000
+let lastSnapshotAt = 0
+
+async function saveSnapshot(items: IndexedProduct[]): Promise<void> {
+  if (Date.now() - lastSnapshotAt < SNAPSHOT_EVERY_MS) return
+  lastSnapshotAt = Date.now()
+
+  try {
+    await mkdir(path.dirname(SNAPSHOT_PATH), { recursive: true })
+    const tmp = `${SNAPSHOT_PATH}.tmp`
+    await writeFile(tmp, JSON.stringify({ savedAt: Date.now(), items }), "utf8")
+    await rename(tmp, SNAPSHOT_PATH)
+  } catch (error) {
+    console.warn("Lenor: could not save catalogue snapshot:", error)
+  }
+}
+
+async function loadSnapshot(): Promise<boolean> {
+  try {
+    const parsed = JSON.parse(await readFile(SNAPSHOT_PATH, "utf8")) as {
+      savedAt: number
+      items: IndexedProduct[]
+    }
+    if (!Array.isArray(parsed.items) || parsed.items.length === 0) return false
+
+    state.items = parsed.items
+    state.byId = new Map(parsed.items.map((item) => [item.product.id, item]))
+    // Treat it as stale so the next request refreshes from Amrod.
+    state.builtAt = 0
+    console.log(
+      `Lenor: serving catalogue snapshot (${parsed.items.length} products) while Amrod loads`
+    )
+    return true
+  } catch {
+    return false
+  }
 }
 
 function refreshCatalogue(): Promise<void> {
@@ -598,8 +678,16 @@ function refreshCatalogue(): Promise<void> {
  */
 async function getCatalogue(): Promise<IndexedProduct[]> {
   if (state.items.length === 0) {
-    await refreshCatalogue()
-    return state.items
+    // A saved snapshot answers instantly; Amrod refreshes it below.
+    if (!state.snapshotTried) {
+      state.snapshotTried = true
+      await loadSnapshot()
+    }
+
+    if (state.items.length === 0) {
+      await refreshCatalogue()
+      return state.items
+    }
   }
 
   if (Date.now() - state.builtAt > LIVE_TTL_MS) {

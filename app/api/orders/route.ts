@@ -1,30 +1,29 @@
-
 import { NextResponse } from "next/server"
-import type { Order } from "@/lib/mock-data"
+import { getSessionUser } from "@/lib/auth"
 import { readCollection } from "@/lib/demo-store"
+import {
+  canView,
+  publicRecord,
+  sortNewestFirst,
+  type StoredOrder,
+} from "@/lib/records"
 
 export const runtime = "nodejs"
+export const dynamic = "force-dynamic"
 
-type StoredOrder = Order & {
-  contactEmail: string
-}
+export async function GET() {
+  const user = await getSessionUser()
 
-export async function GET(request: Request) {
+  if (!user) {
+    return NextResponse.json({ error: "Sign in to see your orders." }, { status: 401 })
+  }
+
   try {
-    const { searchParams } = new URL(request.url)
-    const email = searchParams.get("email")?.trim().toLowerCase()
-
     const orders = await readCollection<StoredOrder>("orders")
-    const results = email
-      ? orders.filter((order) => order.contactEmail === email)
-      : orders
-
-    return NextResponse.json(results)
+    const visible = orders.filter((order) => canView(order, user))
+    return NextResponse.json(sortNewestFirst(visible).map(publicRecord))
   } catch (error) {
     console.error("Failed to load orders:", error)
-    return NextResponse.json(
-      { error: "Failed to load orders." },
-      { status: 500 },
-    )
+    return NextResponse.json({ error: "Failed to load orders." }, { status: 500 })
   }
 }

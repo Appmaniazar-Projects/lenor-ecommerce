@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
@@ -32,19 +32,52 @@ const checkoutSchema = z.object({
   contactEmail: z.string().email("Valid email required"),
   contactPhone: z.string().min(10, "Valid phone number required"),
   billingAddress: z.string().min(10, "Billing address is required"),
-  shippingAddress: z.string().min(10, "Shipping address is required"),
+  shippingAddress: z.string(),
   sameAsShipping: z.boolean(),
-})
+}).refine(
+  (data) => data.sameAsShipping || data.shippingAddress.trim().length >= 10,
+  { message: "Shipping address is required", path: ["shippingAddress"] }
+)
 
 type CheckoutFormValues = z.infer<typeof checkoutSchema>
 
 export function CheckoutClient() {
   const { items, subtotal, vat, total, clearCart } = useCart()
-  const { isAuthenticated, user } = useAuth()
+  const { isAuthenticated, isLoading: authLoading, user } = useAuth()
   const router = useRouter()
   const [loading, setLoading] = useState(false)
 
-  // Redirect to login if not authenticated
+  // Hooks must run on every render, so the form is set up before any
+  // early return below.
+  const form = useForm<CheckoutFormValues>({
+    resolver: zodResolver(checkoutSchema),
+    defaultValues: {
+      contactName: "",
+      contactEmail: "",
+      contactPhone: "",
+      billingAddress: "",
+      shippingAddress: "",
+      sameAsShipping: true,
+    },
+  })
+
+  useEffect(() => {
+    if (!user) return
+    const values = form.getValues()
+    if (!values.contactName) form.setValue("contactName", user.name)
+    if (!values.contactEmail) form.setValue("contactEmail", user.email)
+    if (!values.contactPhone) form.setValue("contactPhone", user.phone)
+    if (!values.billingAddress && user.address) form.setValue("billingAddress", user.address)
+  }, [user, form])
+
+  if (authLoading) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -60,7 +93,7 @@ export function CheckoutClient() {
               Please sign in to proceed with checkout.
             </p>
             <div className="space-y-3">
-              <Link href="/login">
+              <Link href="/login?next=/checkout">
                 <Button size="lg" className="w-full bg-gray-900 hover:bg-gray-800">
                   Sign In to Continue
                 </Button>
@@ -76,18 +109,6 @@ export function CheckoutClient() {
       </div>
     )
   }
-
-  const form = useForm<CheckoutFormValues>({
-    resolver: zodResolver(checkoutSchema),
-    defaultValues: {
-      contactName: "",
-      contactEmail: "",
-      contactPhone: "",
-      billingAddress: "",
-      shippingAddress: "",
-      sameAsShipping: true,
-    },
-  })
 
   const sameAsShipping = form.watch("sameAsShipping")
 
@@ -110,15 +131,13 @@ export function CheckoutClient() {
         contactEmail: data.contactEmail,
         contactPhone: data.contactPhone,
       })
-      if (result.success) {
-        toast.success(
-          `Order ${result.orderNumber} placed successfully! You will be redirected to PayFast for payment.`
-        )
-        clearCart()
-        router.push("/orders")
-      }
-    } catch {
-      toast.error("Failed to place order. Please try again.")
+      clearCart()
+      router.push(`/checkout/success?order=${encodeURIComponent(result.orderNumber)}`)
+    } catch (error) {
+      // The server re-checks price and stock, so show its reason.
+      toast.error(
+        error instanceof Error ? error.message : "Failed to place order. Please try again."
+      )
     } finally {
       setLoading(false)
     }
@@ -290,8 +309,12 @@ export function CheckoutClient() {
                 ) : (
                   <CreditCard className="mr-2 h-4 w-4" />
                 )}
-                Place Order & Pay with PayFast
+                Place Order
               </Button>
+              <p className="text-center text-xs text-muted-foreground">
+                No payment is taken now. Lenor confirms stock and sends you an
+                invoice to pay.
+              </p>
             </form>
           </Form>
         </div>

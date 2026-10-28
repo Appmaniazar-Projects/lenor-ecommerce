@@ -11,7 +11,6 @@ import {
   Menu,
   Package,
   ClipboardList,
-  LayoutDashboard,
   Search,
   ChevronDown,
 } from "lucide-react"
@@ -117,20 +116,14 @@ export function SiteHeader() {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <Link href="/quotes" className="flex items-center gap-2">
+                    <Link href="/orders?tab=quotes" className="flex items-center gap-2">
                       <ClipboardList className="h-4 w-4" />
                       Quote Requests
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/admin" className="flex items-center gap-2">
-                      <LayoutDashboard className="h-4 w-4" />
-                      Admin Dashboard
-                    </Link>
-                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
-                    onClick={logout}
+                    onClick={() => void logout()}
                     className="flex items-center gap-2 text-destructive focus:text-destructive"
                   >
                     <LogOut className="h-4 w-4" />
@@ -145,7 +138,7 @@ export function SiteHeader() {
               </Link>
             )}
 
-            <Link href="/quote-basket" className={iconLink} aria-label="Quote basket">
+            <Link href="/quote" className={iconLink} aria-label="Quote basket">
               <FileText className="h-5 w-5" />
               <span className="hidden lg:inline">Quote</span>
               <CountBadge count={quoteCount} />

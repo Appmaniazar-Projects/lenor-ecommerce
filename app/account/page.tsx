@@ -21,10 +21,24 @@ import {
 } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import Link from "next/link"
-import { MOCK_ORDERS, MOCK_QUOTES } from "@/lib/mock-data"
+import { useEffect, useState } from "react"
+import { getOrders, getQuotes } from "@/lib/api"
+import type { Order, QuoteRequest } from "@/lib/mock-data"
 
 export default function AccountPage() {
   const { user, isAuthenticated, logout } = useAuth()
+  const [recentOrders, setRecentOrders] = useState<Order[]>([])
+  const [recentQuotes, setRecentQuotes] = useState<QuoteRequest[]>([])
+
+  useEffect(() => {
+    if (!isAuthenticated) return
+    Promise.all([getOrders(), getQuotes()])
+      .then(([orders, quotes]) => {
+        setRecentOrders(orders.slice(0, 3))
+        setRecentQuotes(quotes.slice(0, 2))
+      })
+      .catch(() => undefined)
+  }, [isAuthenticated])
 
   if (!isAuthenticated || !user) {
     return (
@@ -58,9 +72,6 @@ export default function AccountPage() {
     )
   }
 
-  // Get user's recent orders and quotes
-  const recentOrders = MOCK_ORDERS.slice(0, 3)
-  const recentQuotes = MOCK_QUOTES.slice(0, 2)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -131,7 +142,7 @@ export default function AccountPage() {
                       <Button 
                         variant="ghost" 
                         className="w-full justify-start text-red-600 hover:text-red-700"
-                        onClick={logout}
+                        onClick={() => void logout()}
                       >
                         <LogOut className="mr-2 h-4 w-4" />
                         Sign Out
@@ -204,7 +215,7 @@ export default function AccountPage() {
                       <FileText className="h-5 w-5" />
                       Recent Quote Requests
                     </CardTitle>
-                    <Link href="/quotes">
+                    <Link href="/orders?tab=quotes">
                       <Button variant="outline" size="sm">
                         View All
                       </Button>
@@ -229,7 +240,7 @@ export default function AccountPage() {
                                 {new Date(quote.date).toLocaleDateString()}
                               </p>
                             </div>
-                            <Link href={`/quotes/${quote.id}`}>
+                            <Link href={`/orders/${quote.id}`}>
                               <Button variant="outline" size="sm">
                                 View
                               </Button>

@@ -1,6 +1,7 @@
 
 const AMROD_API_URL = process.env.AMROD_API_URL;
-const AMROD_LOGIN_URL = "https://identity.amrod.co.za/VendorLogin";
+const AMROD_LOGIN_URL =
+  process.env.AMROD_LOGIN_URL || "https://identity.amrod.co.za/VendorLogin";
 
 const AMROD_USERNAME = process.env.AMROD_USERNAME;
 const AMROD_PASSWORD = process.env.AMROD_PASSWORD;
@@ -23,6 +24,17 @@ interface LoginResponse {
   AccessToken?: string;
   access_token?: string;
   [key: string]: unknown;
+}
+
+/**
+ * Amrod returns 204 No Content for every call during its nightly maintenance
+ * window (00:00-01:00 SAST). Callers keep serving the last good data.
+ */
+export class AmrodUnavailableError extends Error {
+  constructor(endpoint: string) {
+    super(`Amrod returned no content for ${endpoint} (maintenance window?)`);
+    this.name = "AmrodUnavailableError";
+  }
 }
 
 const memoryCache = new Map<string, CacheEntry>();
@@ -72,7 +84,13 @@ async function getAmrodToken(forceRefresh = false): Promise<string> {
       );
     }
 
-    const result = (await response.json()) as LoginResponse;
+    const loginText = await response.text();
+
+    if (response.status === 204 || !loginText.trim()) {
+      throw new AmrodUnavailableError("VendorLogin");
+    }
+
+    const result = JSON.parse(loginText) as LoginResponse;
 
     const findToken = (value: unknown): string | null => {
       if (!value || typeof value !== "object") return null;
@@ -130,8 +148,7 @@ async function amrodRequest<T>(
     const cached = memoryCache.get(cacheKey);
 
     if (cached && cached.expiresAt > Date.now()) {
-      console.log(`[Amrod cache HIT] ${endpoint}`);
-      return cached.data as T;
+            return cached.data as T;
     }
 
     if (cached) memoryCache.delete(cacheKey);
@@ -177,7 +194,17 @@ async function amrodRequest<T>(
       );
     }
 
-    const data = (await response.json()) as T;
+    if (response.status === 204) {
+      throw new AmrodUnavailableError(endpoint);
+    }
+
+    const raw = await response.text();
+
+    if (!raw.trim()) {
+      throw new AmrodUnavailableError(endpoint);
+    }
+
+    const data = JSON.parse(raw) as T;
 
     if (ttlMs > 0) {
       memoryCache.set(cacheKey, {
