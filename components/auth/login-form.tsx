@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -30,14 +29,20 @@ import { useAuth } from "@/contexts/auth-context"
 
 const schema = z.object({
   email: z.string().email("Please enter a valid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  password: z.string().min(1, "Enter your password"),
 })
 
 type FormValues = z.infer<typeof schema>
 
+/** Full reload so server-rendered pages pick up the new session (prices). */
+export function goToNext(fallback = "/products") {
+  const next = new URLSearchParams(window.location.search).get("next")
+  const safe = next && next.startsWith("/") && !next.startsWith("//") ? next : fallback
+  window.location.assign(safe)
+}
+
 export function LoginForm() {
   const { login } = useAuth()
-  const router = useRouter()
   const [loading, setLoading] = useState(false)
 
   const form = useForm<FormValues>({
@@ -48,15 +53,13 @@ export function LoginForm() {
   async function onSubmit(data: FormValues) {
     setLoading(true)
     try {
-      const success = await login(data.email, data.password)
-      if (success) {
-        toast.success("Welcome back!")
-        router.push("/products")
-      } else {
-        toast.error("Invalid credentials. Please try again.")
+      const error = await login(data.email, data.password)
+      if (error) {
+        toast.error(error)
+        return
       }
-    } catch {
-      toast.error("Something went wrong. Please try again.")
+      toast.success("Welcome back!")
+      goToNext()
     } finally {
       setLoading(false)
     }

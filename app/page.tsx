@@ -6,6 +6,7 @@ import { ProductTile } from "@/components/products/product-tile"
 import { Button } from "@/components/ui/button"
 import { queryCatalogue, type CatalogueProduct } from "@/lib/catalogue"
 import { CATEGORIES } from "@/lib/constants"
+import { forViewer } from "@/lib/pricing-visibility"
 
 // Stock and prices change, so never freeze this page at build time.
 export const dynamic = "force-dynamic"
@@ -29,7 +30,7 @@ async function loadRow(query: Parameters<typeof queryCatalogue>[0]) {
     includeFacets: false,
     ...query,
   })
-  return result.products.filter(hasImage).slice(0, ROW_SIZE)
+  return forViewer(result.products.filter(hasImage).slice(0, ROW_SIZE))
 }
 
 function ProductRow({
@@ -152,7 +153,7 @@ export default async function HomePage() {
             </p>
           </div>
           <Button asChild className="bg-accent text-accent-foreground hover:bg-accent/90">
-            <Link href="/quote-basket">
+            <Link href="/quote">
               <FileText className="mr-2 h-4 w-4" />
               Open quote basket
             </Link>

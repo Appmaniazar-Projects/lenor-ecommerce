@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
-import { Analytics } from '@vercel/analytics/next'
 import { Toaster } from '@/components/ui/sonner'
 import { CartProvider } from '@/contexts/cart-context'
 import { QuoteProvider } from '@/contexts/quote-context'
@@ -49,7 +48,6 @@ export default function RootLayout({
             </QuoteProvider>
           </CartProvider>
         </AuthProvider>
-        <Analytics />
       </body>
     </html>
   )

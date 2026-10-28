@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -27,6 +26,7 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { useAuth } from "@/contexts/auth-context"
+import { goToNext } from "@/components/auth/login-form"
 
 const schema = z
   .object({
@@ -35,7 +35,7 @@ const schema = z
     companyName: z.string().min(2, "Company name is required"),
     vatNumber: z.string().optional(),
     phone: z.string().min(10, "Please enter a valid phone number"),
-    password: z.string().min(6, "Password must be at least 6 characters"),
+    password: z.string().min(8, "Password must be at least 8 characters"),
     confirmPassword: z.string(),
   })
   .refine((data) => data.password === data.confirmPassword, {
@@ -47,7 +47,6 @@ type FormValues = z.infer<typeof schema>
 
 export function RegisterForm() {
   const { register } = useAuth()
-  const router = useRouter()
   const [loading, setLoading] = useState(false)
 
   const form = useForm<FormValues>({
@@ -66,7 +65,7 @@ export function RegisterForm() {
   async function onSubmit(data: FormValues) {
     setLoading(true)
     try {
-      const success = await register({
+      const error = await register({
         email: data.email,
         password: data.password,
         name: data.name,
@@ -74,14 +73,12 @@ export function RegisterForm() {
         vatNumber: data.vatNumber,
         phone: data.phone,
       })
-      if (success) {
-        toast.success("Account created successfully!")
-        router.push("/products")
-      } else {
-        toast.error("Registration failed. Please try again.")
+      if (error) {
+        toast.error(error)
+        return
       }
-    } catch {
-      toast.error("Something went wrong. Please try again.")
+      toast.success("Account created successfully!")
+      goToNext()
     } finally {
       setLoading(false)
     }

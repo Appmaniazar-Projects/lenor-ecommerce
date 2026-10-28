@@ -83,7 +83,6 @@ export function ProductCard({ product }: ProductCardProps) {
   function handleAddToQuote(e: React.MouseEvent) {
     e.preventDefault()
     e.stopPropagation()
-    if (!variantInStock()) return
 
     addToQuote({
       productId: product.id,
@@ -97,16 +96,29 @@ export function ProductCard({ product }: ProductCardProps) {
       brandingNotes: "",
       brandingPosition: product.brandingPositions[0]?.label ?? "",
       brandingMethod: "",
+      brandingPositions: product.brandingPositions,
     })
 
     toast.success(`${product.name} added to quote basket`)
-    setTimeout(() => router.push("/quote-basket"), 500)
+    setTimeout(() => router.push("/quote"), 500)
   }
 
   function handleAddToCart(e: React.MouseEvent) {
     e.preventDefault()
     e.stopPropagation()
+
+    if (!isAuthenticated) {
+      toast.info("Sign in to see prices and order")
+      router.push(`/login?next=${encodeURIComponent(`/products/${product.id}`)}`)
+      return
+    }
+
     if (!variantInStock()) return
+
+    if (!(unitPrice > 0)) {
+      toast.error("Pricing is currently unavailable for this item")
+      return
+    }
 
     addToCart({
       productId: product.id,
@@ -117,9 +129,6 @@ export function ProductCard({ product }: ProductCardProps) {
       color: defaultColor,
       size: defaultSize,
       image: smartImage ?? "",
-      brandingNotes: "",
-      brandingPosition: product.brandingPositions[0]?.label ?? "",
-      brandingMethod: "",
     })
 
     toast.success(`${product.name} added to cart`)

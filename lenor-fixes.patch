@@ -1,4 +1,4 @@
-From 28c38e68521d8786d635bcd03c79e594d8d77079 Mon Sep 17 00:00:00 2001
+rom 28c38e68521d8786d635bcd03c79e594d8d77079 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Fri, 23 Oct 2026 05:35:17 +0000
 Subject: [PATCH 1/2] Harden Amrod client (204 window, retry, stale fallback);

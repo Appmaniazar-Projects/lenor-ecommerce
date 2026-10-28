@@ -1,13 +1,10 @@
 /**
- * Mock API layer -- simulates async calls with small delays.
- * Each function can be swapped for real Supabase queries later
- * without changing any component code.
+ * Browser-side client for Lenor's own API routes (/api/*).
+ * Catalogue data comes from Amrod through the server; orders, quotes and
+ * accounts are stored on the server.
  */
 
 import {
-  MOCK_ORDERS,
-  MOCK_QUOTES,
-  MOCK_USER,
   type Product,
   type Order,
   type QuoteRequest,
@@ -23,9 +20,6 @@ import type { CategoryId } from "./constants"
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
 
-function delay(ms = 300): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms))
-}
 
 /* ------------------------------------------------------------------ */
 /*  Products                                                           */
@@ -147,6 +141,13 @@ export async function getFeaturedProducts(): Promise<Product[]> {
 /*  API helpers                                                        */
 /* ------------------------------------------------------------------ */
 
+export class NotFoundError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = "NotFoundError"
+  }
+}
+
 async function apiRequest<T>(
   path: string,
   init?: RequestInit
@@ -161,7 +162,14 @@ async function apiRequest<T>(
     cache: "no-store",
   })
 
-  const result = await response.json().catch(() => ({}))
+  const result =
+    response.status === 204 ? {} : await response.json().catch(() => ({}))
+
+  if (response.status === 404) {
+    throw new NotFoundError(
+      typeof result?.error === "string" ? result.error : "Not found"
+    )
+  }
 
   if (!response.ok) {
     const message =
@@ -181,16 +189,8 @@ async function apiRequest<T>(
 /*  Orders                                                             */
 /* ------------------------------------------------------------------ */
 
-export async function getOrders(email?: string): Promise<Order[]> {
-  const params = new URLSearchParams()
-
-  if (email) params.set("email", email)
-
-  const query = params.size ? `?${params.toString()}` : ""
-
-  const result = await apiRequest<Order[] | { orders: Order[] }>(
-    `/api/orders${query}`
-  )
+export async function getOrders(): Promise<Order[]> {
+  const result = await apiRequest<Order[] | { orders: Order[] }>("/api/orders")
 
   return Array.isArray(result) ? result : result.orders
 }
@@ -203,12 +203,7 @@ export async function getOrder(id: string): Promise<Order | null> {
 
     return "order" in result ? result.order : result
   } catch (error) {
-    if (
-      error instanceof Error &&
-      /404|not found/i.test(error.message)
-    ) {
-      return null
-    }
+    if (error instanceof NotFoundError) return null
 
     throw error
   }
@@ -236,16 +231,10 @@ export interface SubmitQuoteData {
 }
 
 
-export async function getQuotes(email?: string): Promise<QuoteRequest[]> {
-  const params = new URLSearchParams()
-
-  if (email) params.set("email", email)
-
-  const query = params.size ? `?${params.toString()}` : ""
-
+export async function getQuotes(): Promise<QuoteRequest[]> {
   const result = await apiRequest<
     QuoteRequest[] | { quotes: QuoteRequest[] }
-  >(`/api/quotes${query}`)
+  >("/api/quotes")
 
   return Array.isArray(result) ? result : result.quotes
 }
@@ -260,12 +249,7 @@ export async function getQuote(
 
     return "quote" in result ? result.quote : result
   } catch (error) {
-    if (
-      error instanceof Error &&
-      /404|not found/i.test(error.message)
-    ) {
-      return null
-    }
+    if (error instanceof NotFoundError) return null
 
     throw error
   }
@@ -273,7 +257,7 @@ export async function getQuote(
 
 export async function submitQuoteRequest(
   data: SubmitQuoteData
-): Promise<{ success: boolean; quoteNumber: string }> {
+): Promise<{ success: boolean; quoteNumber: string; id?: string }> {
   const result = await apiRequest<{
     success?: boolean
     quoteNumber?: string
@@ -295,6 +279,7 @@ export async function submitQuoteRequest(
   return {
     success: result.success ?? true,
     quoteNumber,
+    id: result.quote?.id,
   }
 }
 
@@ -319,7 +304,7 @@ export interface CheckoutData {
 
 export async function createOrder(
   data: CheckoutData
-): Promise<{ success: boolean; orderNumber: string }> {
+): Promise<{ success: boolean; orderNumber: string; id?: string }> {
   // Never trust a price supplied by the browser.
   // The checkout API must look up current prices and stock itself.
   const payload = {
@@ -357,22 +342,30 @@ export async function createOrder(
   return {
     success: result.success ?? true,
     orderNumber,
+    id: result.order?.id,
   }
 }
 
 /* ------------------------------------------------------------------ */
-/*  Auth (mock)                                                        */
+/*  Auth                                                               */
 /* ------------------------------------------------------------------ */
+
+export type SessionUser = UserProfile & { isAdmin?: boolean }
+
+export async function getCurrentUser(): Promise<SessionUser | null> {
+  const result = await apiRequest<{ user: SessionUser | null }>("/api/auth/me")
+  return result.user
+}
 
 export async function login(
   email: string,
-  _password: string
-): Promise<{ success: boolean; user: UserProfile | null }> {
-  await delay(400)
-  if (email) {
-    return { success: true, user: { ...MOCK_USER, email } }
-  }
-  return { success: false, user: null }
+  password: string
+): Promise<SessionUser> {
+  const result = await apiRequest<{ user: SessionUser }>("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+  })
+  return result.user
 }
 
 export interface RegisterData {
@@ -384,42 +377,14 @@ export interface RegisterData {
   phone: string
 }
 
-export async function register(
-  data: RegisterData
-): Promise<{ success: boolean; user: UserProfile | null }> {
-  await delay(400)
-  return {
-    success: true,
-    user: {
-      ...MOCK_USER,
-      email: data.email,
-      name: data.name,
-      companyName: data.companyName,
-      vatNumber: data.vatNumber ?? "",
-      phone: data.phone,
-    },
-  }
+export async function register(data: RegisterData): Promise<SessionUser> {
+  const result = await apiRequest<{ user: SessionUser }>("/api/auth/register", {
+    method: "POST",
+    body: JSON.stringify(data),
+  })
+  return result.user
 }
 
-/* ------------------------------------------------------------------ */
-/*  Admin                                                              */
-/* ------------------------------------------------------------------ */
-
-export interface AdminStats {
-  totalOrders: number
-  totalRevenue: number
-  pendingQuotes: number
-  activeOrders: number
-}
-
-export async function getAdminStats(): Promise<AdminStats> {
-  await delay(200)
-  return {
-    totalOrders: MOCK_ORDERS.length,
-    totalRevenue: MOCK_ORDERS.reduce((sum, o) => sum + o.total, 0),
-    pendingQuotes: MOCK_QUOTES.filter((q) => q.status === "Pending").length,
-    activeOrders: MOCK_ORDERS.filter(
-      (o) => o.status !== "Delivered" && o.status !== "Cancelled"
-    ).length,
-  }
+export async function logout(): Promise<void> {
+  await apiRequest("/api/auth/logout", { method: "POST" })
 }

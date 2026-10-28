@@ -4,14 +4,20 @@ import {
   queryCatalogue,
   type CatalogueQuery,
 } from "@/lib/catalogue"
+import { canSeePrices, withoutPrices } from "@/lib/pricing-visibility"
+
+export const runtime = "nodejs"
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
 
+    const showPrices = await canSeePrices()
+
     // Legacy callers: no paging params means the full array.
     if (!searchParams.has("page") && !searchParams.has("perPage")) {
-      return NextResponse.json(await getAllProducts())
+      const all = await getAllProducts()
+      return NextResponse.json(showPrices ? all : all.map(withoutPrices))
     }
 
     const num = (key: string) => {
@@ -53,12 +59,28 @@ export async function GET(request: Request) {
       perPage: num("perPage"),
     }
 
-    return NextResponse.json(await queryCatalogue(query))
+    if (!showPrices) {
+      // Price filters would reveal prices, so they're ignored for visitors.
+      query.minPrice = undefined
+      query.maxPrice = undefined
+    }
+
+    const result = await queryCatalogue(query)
+
+    return NextResponse.json(
+      showPrices
+        ? result
+        : {
+            ...result,
+            products: result.products.map(withoutPrices),
+            facets: { ...result.facets, priceRange: null },
+          }
+    )
   } catch (error) {
     console.error("Failed to load products from Amrod:", error)
 
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : String(error) },
+      { error: "Products are temporarily unavailable. Please try again shortly." },
       { status: 500 }
     )
   }

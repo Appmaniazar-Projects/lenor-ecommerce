@@ -18,19 +18,51 @@ import {
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Package, ClipboardList } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { useAuth } from "@/contexts/auth-context"
 
 export function OrdersClient() {
   const [orders, setOrders] = useState<Order[]>([])
   const [quotes, setQuotes] = useState<QuoteRequest[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
+  const [tab, setTab] = useState("orders")
+  const { isAuthenticated, isLoading: authLoading, user } = useAuth()
 
   useEffect(() => {
-    Promise.all([getOrders(), getQuotes()]).then(([o, q]) => {
-      setOrders(o)
-      setQuotes(q)
-      setLoading(false)
-    })
+    const requested = new URLSearchParams(window.location.search).get("tab")
+    if (requested === "quotes") setTab("quotes")
   }, [])
+
+  useEffect(() => {
+    if (authLoading) return
+    if (!isAuthenticated) {
+      setLoading(false)
+      return
+    }
+
+    Promise.all([getOrders(), getQuotes()])
+      .then(([o, q]) => {
+        setOrders(o)
+        setQuotes(q)
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : "Could not load your orders."))
+      .finally(() => setLoading(false))
+  }, [authLoading, isAuthenticated])
+
+  if (!authLoading && !isAuthenticated) {
+    return (
+      <div className="mx-auto max-w-7xl px-4 py-16 text-center lg:px-8">
+        <h1 className="text-2xl font-bold text-foreground">Sign in required</h1>
+        <p className="mt-2 text-muted-foreground">
+          Sign in to see your orders and quote requests.
+        </p>
+        <Button className="mt-6" asChild>
+          <Link href="/login?next=/orders">Sign In</Link>
+        </Button>
+      </div>
+    )
+  }
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 lg:px-8">
@@ -38,10 +70,17 @@ export function OrdersClient() {
         Orders & Quotes
       </h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        Track your orders and quote requests.
+        {user?.isAdmin
+          ? "Admin view: every customer's orders and quote requests."
+          : "Track your orders and quote requests."}
       </p>
+      {error && (
+        <p className="mt-4 text-sm text-destructive" role="alert">
+          {error}
+        </p>
+      )}
 
-      <Tabs defaultValue="orders" className="mt-6">
+      <Tabs value={tab} onValueChange={setTab} className="mt-6">
         <TabsList>
           <TabsTrigger value="orders" className="flex items-center gap-1.5">
             <Package className="h-4 w-4" />

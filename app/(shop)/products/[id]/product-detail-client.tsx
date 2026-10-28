@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import {
   FileText,
@@ -39,7 +40,6 @@ import {
 
 import { StockIndicator } from "@/components/products/stock-indicator"
 import { QuantitySelector } from "@/components/products/quantity-selector"
-import { BulkPricingCalculator } from "@/components/products/bulk-pricing-calculator"
 
 import { useCart } from "@/contexts/cart-context"
 import { useQuote } from "@/contexts/quote-context"
@@ -96,6 +96,7 @@ export function ProductDetailClient({ product }: Props) {
   const { addItem: addToCart } = useCart()
   const { addItem: addToQuote } = useQuote()
   const { isAuthenticated } = useAuth()
+  const router = useRouter()
 
   const variants = product.variants ?? []
   const images = product.images ?? []
@@ -205,48 +206,23 @@ export function ProductDetailClient({ product }: Props) {
     setManuallySelectedImage(false)
   }
 
-  function validateSelection(): boolean {
+  function validateQuantity(): boolean {
     if (!selectedVariant) {
-      toast.error(
-        "Please select a valid colour and size combination"
-      )
+      toast.error("Please select a valid colour and size combination")
       return false
     }
 
-    if (!hasValidPrice) {
-      toast.error(
-        "Pricing is currently unavailable for this variant"
-      )
-      return false
-    }
-
-    if (selectedStock <= 0) {
-      toast.error("This variant is currently out of stock")
-      return false
-    }
-
-    if (
-      !Number.isInteger(quantity) ||
-      quantity < product.minOrderQty
-    ) {
-      toast.error(
-        `Minimum order quantity is ${product.minOrderQty}`
-      )
-      return false
-    }
-
-    if (quantity > selectedStock) {
-      toast.error(
-        `Only ${selectedStock} units are currently available`
-      )
+    if (!Number.isInteger(quantity) || quantity < product.minOrderQty) {
+      toast.error(`Minimum order quantity is ${product.minOrderQty}`)
       return false
     }
 
     return true
   }
 
+  // Quotes don't need live stock or a visible price: Lenor confirms both.
   function handleAddToQuote() {
-    if (!validateSelection() || !selectedVariant) return
+    if (!validateQuantity() || !selectedVariant) return
 
     addToQuote({
       productId: product.id,
@@ -258,8 +234,7 @@ export function ProductDetailClient({ product }: Props) {
       size: selectedSize,
       image: mainImage ?? "",
       brandingNotes: "",
-      brandingPosition:
-        product.brandingPositions[0]?.label ?? "",
+      brandingPosition: product.brandingPositions[0]?.label ?? "",
       brandingMethod: "",
       brandingPositions: product.brandingPositions ?? [],
     })
@@ -268,7 +243,28 @@ export function ProductDetailClient({ product }: Props) {
   }
 
   function handleAddToCart() {
-    if (!validateSelection() || !selectedVariant) return
+    if (!isAuthenticated) {
+      toast.info("Sign in to see prices and order")
+      router.push(`/login?next=${encodeURIComponent(`/products/${product.id}`)}`)
+      return
+    }
+
+    if (!validateQuantity() || !selectedVariant) return
+
+    if (!hasValidPrice) {
+      toast.error("Pricing is currently unavailable for this variant")
+      return
+    }
+
+    if (selectedStock <= 0) {
+      toast.error("This variant is currently out of stock")
+      return
+    }
+
+    if (quantity > selectedStock) {
+      toast.error(`Only ${selectedStock} units are currently available`)
+      return
+    }
 
     addToCart({
       productId: product.id,
@@ -491,16 +487,18 @@ export function ProductDetailClient({ product }: Props) {
               onChange={setQuantity}
             />
 
-            <p className="text-xs text-muted-foreground">
-              Subtotal:{" "}
-              {formatPrice(selectedPrice * quantity)} excl. VAT
-            </p>
+            {isAuthenticated && hasValidPrice && (
+              <p className="text-xs text-muted-foreground">
+                Subtotal: {formatPrice(selectedPrice * quantity)} excl. VAT
+              </p>
+            )}
 
             {selectedVariant &&
               quantity > selectedStock &&
               selectedStock > 0 && (
                 <p className="text-sm text-destructive">
-                  Only {selectedStock} units are currently available.
+                  Only {selectedStock} units are in stock. You can still request
+                  a quote and Lenor will confirm lead time.
                 </p>
               )}
           </div>
@@ -513,12 +511,7 @@ export function ProductDetailClient({ product }: Props) {
               size="lg"
               className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90"
               onClick={handleAddToQuote}
-              disabled={
-                !selectedVariant ||
-                !hasValidPrice ||
-                selectedStock <= 0 ||
-                quantity > selectedStock
-              }
+              disabled={!selectedVariant}
             >
               <FileText className="mr-2 h-4 w-4" />
               Add to Quote
@@ -530,14 +523,15 @@ export function ProductDetailClient({ product }: Props) {
               className="flex-1"
               onClick={handleAddToCart}
               disabled={
-                !selectedVariant ||
-                !hasValidPrice ||
-                selectedStock <= 0 ||
-                quantity > selectedStock
+                isAuthenticated &&
+                (!selectedVariant ||
+                  !hasValidPrice ||
+                  selectedStock <= 0 ||
+                  quantity > selectedStock)
               }
             >
               <ShoppingCart className="mr-2 h-4 w-4" />
-              Add to Cart
+              {isAuthenticated ? "Add to Cart" : "Sign in to Order"}
             </Button>
           </div>
 
@@ -574,8 +568,6 @@ export function ProductDetailClient({ product }: Props) {
               </CardContent>
             </Card>
           )}
-
-          <BulkPricingCalculator product={product} />
 
           <Button
             variant="ghost"

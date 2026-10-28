@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { getProductById } from "@/lib/catalogue"
+import { forViewer } from "@/lib/pricing-visibility"
 import { ProductDetailClient } from "./product-detail-client"
 
 interface Props {
@@ -23,5 +24,5 @@ export default async function ProductDetailPage({ params }: Props) {
 
   if (!product) notFound()
 
-  return <ProductDetailClient product={product} />
+  return <ProductDetailClient product={await forViewer(product)} />
 }

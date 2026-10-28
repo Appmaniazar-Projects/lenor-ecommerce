@@ -1,19 +1,14 @@
 
 import { randomUUID } from "node:crypto"
 import { NextResponse } from "next/server"
+import { getSessionUser } from "@/lib/auth"
 import { getProductById } from "@/lib/catalogue"
 import { VAT_RATE } from "@/lib/constants"
 import type { Order } from "@/lib/mock-data"
-import { readCollection, writeCollection } from "@/lib/demo-store"
+import { updateCollection } from "@/lib/demo-store"
+import { publicRecord, type StoredOrder } from "@/lib/records"
 
 export const runtime = "nodejs"
-
-type StoredOrder = Order & {
-  contactEmail: string
-  contactName: string
-  contactPhone: string
-  billingAddress: string
-}
 
 type CheckoutBody = {
   items?: {
@@ -29,12 +24,24 @@ type CheckoutBody = {
   contactPhone?: string
 }
 
-const text = (value: unknown) =>
-  typeof value === "string" ? value.trim() : ""
+const text = (value: unknown, max = 500) =>
+  typeof value === "string" ? value.trim().slice(0, max) : ""
+
+// Prices: excl. VAT from Amrod, rounded to cents at each step.
+const round2 = (value: number) => Math.round(value * 100) / 100
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as CheckoutBody
+    const user = await getSessionUser()
+
+    if (!user) {
+      return NextResponse.json(
+        { error: "Sign in to place an order." },
+        { status: 401 },
+      )
+    }
+
+    const body = (await request.json().catch(() => ({}))) as CheckoutBody
 
     if (
       !Array.isArray(body.items) ||
@@ -142,13 +149,14 @@ export async function POST(request: Request) {
       })
     }
 
-    const subtotal = Number(
-      orderItems
-        .reduce((sum, item) => sum + item.quantity * item.unitPrice, 0)
-        .toFixed(2),
+    const subtotal = round2(
+      orderItems.reduce(
+        (sum, item) => sum + round2(item.quantity * round2(item.unitPrice)),
+        0,
+      ),
     )
-    const vat = Number((subtotal * VAT_RATE).toFixed(2))
-    const total = Number((subtotal + vat).toFixed(2))
+    const vat = round2(subtotal * VAT_RATE)
+    const total = round2(subtotal + vat)
     const id = randomUUID()
     const year = new Date().getFullYear()
 
@@ -166,18 +174,19 @@ export async function POST(request: Request) {
       contactName,
       contactPhone,
       billingAddress,
+      userId: user.id,
     }
 
-    const orders = await readCollection<StoredOrder>("orders")
-    orders.push(order)
-    await writeCollection("orders", orders)
+    await updateCollection<StoredOrder, void>("orders", (orders) => {
+      orders.push(order)
+    })
 
     return NextResponse.json(
       {
         success: true,
         orderNumber: order.orderNumber,
-        order,
-        message: "Order saved successfully. Payment is not yet processed.",
+        order: publicRecord(order),
+        message: "Order saved. Payment is not taken online yet.",
       },
       { status: 201 },
     )
