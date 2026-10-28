@@ -1,5 +1,7 @@
 "use client"
 
+import { formatNumber } from "@/lib/constants"
+
 import { useEffect, useState } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import type { PaginatedProducts } from "@/lib/api"
@@ -104,7 +106,7 @@ export function ProductCatalog() {
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {data
-              ? `${data.total.toLocaleString("en-ZA")} product${
+              ? `${formatNumber(data.total)} product${
                   data.total !== 1 ? "s" : ""
                 } found`
               : "Loading..."}

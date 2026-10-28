@@ -41,7 +41,7 @@ import {
 import { useQuote } from "@/contexts/quote-context"
 import { useAuth } from "@/contexts/auth-context"
 import { submitQuoteRequest } from "@/lib/api"
-import { formatPrice } from "@/lib/constants"
+import { formatPrice, PRICES_REQUIRE_LOGIN } from "@/lib/constants"
 
 const quoteFormSchema = z.object({
   contactName: z.string().min(2, "Name is required"),
@@ -81,7 +81,8 @@ export function QuoteBasketClient() {
   const [dragging, setDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const showPrices = isAuthenticated && items.every((i) => i.price > 0)
+  const showPrices =
+    (isAuthenticated || !PRICES_REQUIRE_LOGIN) && items.every((i) => i.price > 0)
 
   const form = useForm<QuoteFormValues>({
     resolver: zodResolver(quoteFormSchema),

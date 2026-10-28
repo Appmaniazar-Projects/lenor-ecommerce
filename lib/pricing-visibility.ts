@@ -2,12 +2,14 @@ import "server-only"
 
 import { getSessionUser } from "@/lib/auth"
 import type { CatalogueProduct } from "@/lib/catalogue"
+import { PRICES_REQUIRE_LOGIN } from "@/lib/constants"
 
 /**
- * Lenor only shows Amrod prices to signed-in customers. Prices are removed
- * on the server, so they never reach the browser of a visitor.
+ * Prices are public unless PRICES_REQUIRE_LOGIN is on. When it is, prices
+ * are removed on the server, so they never reach a visitor's browser.
  */
 export async function canSeePrices(): Promise<boolean> {
+  if (!PRICES_REQUIRE_LOGIN) return true
   return (await getSessionUser()) !== null
 }
 

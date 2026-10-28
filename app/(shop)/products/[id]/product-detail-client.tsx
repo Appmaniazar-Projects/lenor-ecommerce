@@ -45,7 +45,7 @@ import { useCart } from "@/contexts/cart-context"
 import { useQuote } from "@/contexts/quote-context"
 import { useAuth } from "@/contexts/auth-context"
 
-import { formatPrice, CATEGORIES } from "@/lib/constants"
+import { formatPrice, CATEGORIES, PRICES_REQUIRE_LOGIN } from "@/lib/constants"
 import type { Product } from "@/lib/mock-data"
 
 interface Props {
@@ -96,6 +96,7 @@ export function ProductDetailClient({ product }: Props) {
   const { addItem: addToCart } = useCart()
   const { addItem: addToQuote } = useQuote()
   const { isAuthenticated } = useAuth()
+  const showPrice = isAuthenticated || !PRICES_REQUIRE_LOGIN
   const router = useRouter()
 
   const variants = product.variants ?? []
@@ -243,7 +244,7 @@ export function ProductDetailClient({ product }: Props) {
   }
 
   function handleAddToCart() {
-    if (!isAuthenticated) {
+    if (!showPrice) {
       toast.info("Sign in to see prices and order")
       router.push(`/login?next=${encodeURIComponent(`/products/${product.id}`)}`)
       return
@@ -387,7 +388,7 @@ export function ProductDetailClient({ product }: Props) {
 
           {/* Pricing */}
           <div>
-            {isAuthenticated ? (
+            {showPrice ? (
               <>
                 {hasValidPrice ? (
                   <p className="text-3xl font-bold text-foreground">
@@ -487,7 +488,7 @@ export function ProductDetailClient({ product }: Props) {
               onChange={setQuantity}
             />
 
-            {isAuthenticated && hasValidPrice && (
+            {showPrice && hasValidPrice && (
               <p className="text-xs text-muted-foreground">
                 Subtotal: {formatPrice(selectedPrice * quantity)} excl. VAT
               </p>
@@ -523,7 +524,7 @@ export function ProductDetailClient({ product }: Props) {
               className="flex-1"
               onClick={handleAddToCart}
               disabled={
-                isAuthenticated &&
+                showPrice &&
                 (!selectedVariant ||
                   !hasValidPrice ||
                   selectedStock <= 0 ||
@@ -531,7 +532,7 @@ export function ProductDetailClient({ product }: Props) {
               }
             >
               <ShoppingCart className="mr-2 h-4 w-4" />
-              {isAuthenticated ? "Add to Cart" : "Sign in to Order"}
+              {showPrice ? "Add to Cart" : "Sign in to Order"}
             </Button>
           </div>
 

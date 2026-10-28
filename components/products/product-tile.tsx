@@ -4,12 +4,13 @@ import { useState } from "react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/contexts/auth-context"
-import { formatPrice } from "@/lib/constants"
+import { formatPrice, PRICES_REQUIRE_LOGIN } from "@/lib/constants"
 import type { Product } from "@/lib/mock-data"
 
 /** Compact, read-only product tile for rows on the home page. */
 export function ProductTile({ product }: { product: Product }) {
   const { isAuthenticated } = useAuth()
+  const showPrice = isAuthenticated || !PRICES_REQUIRE_LOGIN
   const [imageFailed, setImageFailed] = useState(false)
 
   const image = product.images?.find((url) => url && url.trim().length > 0)
@@ -53,7 +54,7 @@ export function ProductTile({ product }: { product: Product }) {
         </h3>
 
         <div className="mt-auto pt-2">
-          {isAuthenticated ? (
+          {showPrice ? (
             product.price > 0 ? (
               <p className="text-base font-bold text-foreground">
                 {distinctPrices.size > 1 && (

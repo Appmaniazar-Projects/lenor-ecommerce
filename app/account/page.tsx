@@ -20,6 +20,7 @@ import {
   Calendar
 } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
+import { formatPrice } from "@/lib/constants"
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import { getOrders, getQuotes } from "@/lib/api"
@@ -303,11 +304,4 @@ export default function AccountPage() {
       <SiteFooter />
     </div>
   )
-}
-
-function formatPrice(amount: number): string {
-  return `R ${amount.toLocaleString("en-ZA", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`
 }

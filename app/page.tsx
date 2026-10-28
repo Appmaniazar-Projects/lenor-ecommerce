@@ -5,7 +5,7 @@ import { SiteFooter } from "@/components/layout/site-footer"
 import { ProductTile } from "@/components/products/product-tile"
 import { Button } from "@/components/ui/button"
 import { queryCatalogue, type CatalogueProduct } from "@/lib/catalogue"
-import { CATEGORIES } from "@/lib/constants"
+import { CATEGORIES, formatNumber } from "@/lib/constants"
 import { forViewer } from "@/lib/pricing-visibility"
 
 // Stock and prices change, so never freeze this page at build time.
@@ -92,7 +92,7 @@ export default async function HomePage() {
           <div className="mb-3 flex items-baseline justify-between">
             <h1 className="text-lg font-bold text-foreground">Shop by category</h1>
             <Link href="/products" className="text-sm font-medium text-primary hover:underline">
-              Browse all {total.toLocaleString("en-ZA")} products
+              Browse all {formatNumber(total)} products
             </Link>
           </div>
 

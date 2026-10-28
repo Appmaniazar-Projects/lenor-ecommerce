@@ -11,7 +11,7 @@ import { StockIndicator } from "./stock-indicator"
 import { useCart } from "@/contexts/cart-context"
 import { useQuote } from "@/contexts/quote-context"
 import { useAuth } from "@/contexts/auth-context"
-import { formatPrice } from "@/lib/constants"
+import { formatNumber, formatPrice, PRICES_REQUIRE_LOGIN } from "@/lib/constants"
 import type { Product } from "@/lib/mock-data"
 import { toast } from "sonner"
 
@@ -42,6 +42,7 @@ export function ProductCard({ product }: ProductCardProps) {
   const { addItem: addToCart } = useCart()
   const { addItem: addToQuote } = useQuote()
   const { isAuthenticated } = useAuth()
+  const showPrice = isAuthenticated || !PRICES_REQUIRE_LOGIN
   const router = useRouter()
 
   const [imageFailed, setImageFailed] = useState(false)
@@ -107,7 +108,7 @@ export function ProductCard({ product }: ProductCardProps) {
     e.preventDefault()
     e.stopPropagation()
 
-    if (!isAuthenticated) {
+    if (!showPrice) {
       toast.info("Sign in to see prices and order")
       router.push(`/login?next=${encodeURIComponent(`/products/${product.id}`)}`)
       return
@@ -195,13 +196,13 @@ export function ProductCard({ product }: ProductCardProps) {
                 <p>
                   Stock on hand:{" "}
                   <span className="font-medium text-foreground">
-                    {(product.stockOnHand ?? 0).toLocaleString("en-ZA")}
+                    {formatNumber(product.stockOnHand ?? 0)}
                   </span>
                   {(product.incomingStock ?? 0) > 0 && (
                     <>
                       {" "}
                       · Incoming:{" "}
-                      {(product.incomingStock ?? 0).toLocaleString("en-ZA")}
+                      {formatNumber(product.incomingStock ?? 0)}
                     </>
                   )}
                 </p>
@@ -212,7 +213,7 @@ export function ProductCard({ product }: ProductCardProps) {
 
           <div className="flex items-center justify-between">
             <div>
-              {isAuthenticated ? (
+              {showPrice ? (
                 <>
                   <p className="text-lg font-bold text-foreground">
                     {hasPriceRange && (

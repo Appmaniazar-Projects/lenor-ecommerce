@@ -4,15 +4,31 @@ export const SITE_DOMAIN = "lenor.co.za"
 export const SITE_DESCRIPTION =
   "South Africa's trusted B2B supplier of branded promotional products."
 
+/**
+ * Prices are shown to everyone by default. Set
+ * NEXT_PUBLIC_PRICES_REQUIRE_LOGIN=true (then rebuild) to hide them from
+ * visitors until they sign in.
+ */
+export const PRICES_REQUIRE_LOGIN =
+  process.env.NEXT_PUBLIC_PRICES_REQUIRE_LOGIN === "true"
+
 export const VAT_RATE = 0.15
 export const CURRENCY = "ZAR"
 export const CURRENCY_SYMBOL = "R"
 
+/**
+ * "R 1 234.56". Formatted by hand: Node and browsers disagree on the en-ZA
+ * locale ("1 234,56" vs "1,234.56"), which breaks React hydration.
+ */
+export function formatNumber(value: number, decimals = 0): string {
+  const safe = Number.isFinite(value) ? value : 0
+  const [whole, fraction] = Math.abs(safe).toFixed(decimals).split(".")
+  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, " ")
+  return `${safe < 0 ? "-" : ""}${grouped}${fraction ? `.${fraction}` : ""}`
+}
+
 export function formatPrice(amount: number): string {
-  return `R ${amount.toLocaleString("en-ZA", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`
+  return `R ${formatNumber(amount, 2)}`
 }
 
 export const CATEGORIES = [
