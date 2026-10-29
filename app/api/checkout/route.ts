@@ -1,7 +1,8 @@
 
 import { randomUUID } from "node:crypto"
-import { NextResponse } from "next/server"
+import { after, NextResponse } from "next/server"
 import { getSessionUser } from "@/lib/auth"
+import { notifyNewOrder } from "@/lib/notify"
 import { getProductById } from "@/lib/catalogue"
 import { VAT_RATE } from "@/lib/constants"
 import type { Order } from "@/lib/mock-data"
@@ -180,6 +181,8 @@ export async function POST(request: Request) {
     await updateCollection<StoredOrder, void>("orders", (orders) => {
       orders.push(order)
     })
+
+    after(() => notifyNewOrder(order))
 
     return NextResponse.json(
       {

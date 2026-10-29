@@ -65,6 +65,8 @@ interface AmrodProduct {
   minimum: number
   introduced: string
   promotion: string
+  /** 0 normal, 1 featured, 2 hidden. */
+  behaviour?: string | number | null
   brandingTemplates: AmrodBrandingTemplate[] | null
   gender?: string | null
   material?: string | null
@@ -366,6 +368,9 @@ function buildBase(raw: AmrodProduct[]): BaseProduct[] {
     // Without a variant there is nothing to price or stock.
     if (validVariants.length === 0) continue
 
+    // Amrod's Behaviour flag: 2 = hidden, never shown to customers.
+    if (String(product.behaviour ?? "0") === "2") continue
+
     const baseVariants = validVariants.map((v) => ({
       fullCode: v.fullCode,
       colourCode: v.codeColour?.trim().toUpperCase() || null,
@@ -497,7 +502,8 @@ function buildBase(raw: AmrodProduct[]): BaseProduct[] {
         description: position.description,
       })),
       branding,
-      featured: product.promotion === "1",
+      // Behaviour 1 is Amrod's "featured" flag (promotion is separate).
+      featured: String(product.behaviour ?? "0") === "1",
       baseVariants,
       searchText,
     })
@@ -692,7 +698,8 @@ async function loadSnapshot(): Promise<boolean> {
 
     // Snapshots from older versions have no branding data.
     for (const item of parsed.items) {
-      item.product.branding ??= { positions: [], guideUrl: null }
+      item.product.branding ??= { positions: [], fixedPositions: [], guideUrl: null }
+      item.product.branding.fixedPositions ??= []
       for (const v of item.product.variants) v.colourCode ??= null
     }
 

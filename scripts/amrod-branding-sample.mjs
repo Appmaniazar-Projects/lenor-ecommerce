@@ -3,6 +3,7 @@
 //
 //   node scripts/amrod-branding-sample.mjs            (first product with branding)
 //   node scripts/amrod-branding-sample.mjs AMT-100    (a specific simple code)
+//   node scripts/amrod-branding-sample.mjs --summary  (formats used across ALL products)
 //
 // Reads AMROD_* values from .env.local. Prints no passwords or tokens.
 import { readFileSync, writeFileSync } from "node:fs"
@@ -41,6 +42,39 @@ console.log("HTTP", res.status)
 if (res.status === 204) throw new Error("Amrod returned 204 (maintenance window 00:00-01:00?)")
 const products = await res.json()
 console.log("Products:", products.length)
+
+if (process.argv[2] === "--summary") {
+  const kind = (v) => (v === null || v === undefined ? "null" : Array.isArray(v) ? (v.length ? `array of ${typeof v[0]}` : "empty array") : typeof v)
+  const tally = {}
+  const add = (field, value) => {
+    tally[field] ??= {}
+    tally[field][value] = (tally[field][value] ?? 0) + 1
+  }
+  for (const p of products) {
+    add("behaviour", String(p.behaviour))
+    add("requiredBrandingPositions", kind(p.requiredBrandingPositions))
+    add("noCoBrandingPositions", kind(p.noCoBrandingPositions))
+    add("fullBrandingGuide", p.fullBrandingGuide ? "set" : "missing")
+    add("brandings", kind(p.brandings))
+    for (const pos of p.brandings ?? []) {
+      add("positionMultiplier", String(pos.positionMultiplier))
+      add("position keys", Object.keys(pos).sort().join(","))
+      for (const m of pos.method ?? []) {
+        add("method keys", Object.keys(m).sort().join(","))
+        add("exclusions", kind(m.exclusions))
+        add("numberOfColours", String(m.numberOfColours))
+      }
+    }
+  }
+  for (const [field, counts] of Object.entries(tally)) {
+    const top = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 12)
+    console.log(`\n${field}:`)
+    for (const [value, count] of top) console.log(`  ${count}\t${value}`)
+  }
+  const ex = products.flatMap((p) => (p.brandings ?? []).flatMap((pos) => (pos.method ?? []).map((m) => m.exclusions))).find((e) => e && e.length)
+  console.log("\nExample non-empty exclusions:", JSON.stringify(ex))
+  process.exit(0)
+}
 
 const wanted = process.argv[2]
 const isBrandingKey = (k) => /brand|position|method|guide/i.test(k)

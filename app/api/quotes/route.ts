@@ -1,7 +1,8 @@
 
 import { randomUUID } from "node:crypto"
-import { NextResponse } from "next/server"
-import { getSessionUser } from "@/lib/auth"
+import { after, NextResponse } from "next/server"
+import { clientIp, getSessionUser } from "@/lib/auth"
+import { notifyNewQuote } from "@/lib/notify"
 import { getProductById } from "@/lib/catalogue"
 import { methodsForColour, type BrandingChoice } from "@/lib/branding"
 import type { QuoteRequest } from "@/lib/mock-data"
@@ -63,8 +64,29 @@ export async function GET() {
   }
 }
 
+// Each quote emails the address typed into the form, so limit how many a
+// single visitor can send (stops the form being used to spam people).
+const recentQuotes = new Map<string, number[]>()
+const QUOTE_LIMIT = 10
+const QUOTE_WINDOW_MS = 60 * 60 * 1000
+
+function tooManyQuotes(key: string): boolean {
+  const now = Date.now()
+  const times = (recentQuotes.get(key) ?? []).filter((t) => now - t < QUOTE_WINDOW_MS)
+  recentQuotes.set(key, times)
+  return times.length >= QUOTE_LIMIT
+}
+
 export async function POST(request: Request) {
   try {
+    const ipKey = clientIp(request)
+    if (tooManyQuotes(ipKey)) {
+      return NextResponse.json(
+        { error: "Too many quote requests. Please try again later or contact Lenor directly." },
+        { status: 429 },
+      )
+    }
+
     const user = await getSessionUser()
     const body = (await request.json().catch(() => ({}))) as QuoteBody
 
@@ -240,6 +262,10 @@ export async function POST(request: Request) {
     await updateCollection<StoredQuote, void>("quotes", (quotes) => {
       quotes.push(quote)
     })
+    recentQuotes.get(ipKey)?.push(Date.now())
+
+    // Sent after the response so the customer doesn't wait for email.
+    after(() => notifyNewQuote(quote))
 
     return NextResponse.json(
       {

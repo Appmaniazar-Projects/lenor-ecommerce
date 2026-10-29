@@ -150,6 +150,11 @@ export function BrandingSelector({
                     {position.description && (
                       <p className="text-xs text-muted-foreground">{position.description}</p>
                     )}
+                    {position.multiplier > 1 && (
+                      <p className="text-xs text-muted-foreground">
+                        Can be branded in {position.multiplier} places. Say where in your notes.
+                      </p>
+                    )}
 
                     <label
                       htmlFor={selectId}
@@ -188,6 +193,14 @@ export function BrandingSelector({
                 )
               })}
             </div>
+          )}
+
+          {branding.fixedPositions.length > 0 && (
+            <p className={cn("text-xs text-muted-foreground", compact ? "pt-2" : "pt-3")}>
+              {branding.fixedPositions.join(", ")}{" "}
+              {branding.fixedPositions.length === 1 ? "carries" : "carry"} a fixed
+              Amrod design and can&apos;t take your logo.
+            </p>
           )}
 
           {branding.guideUrl && (
