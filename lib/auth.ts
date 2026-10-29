@@ -11,8 +11,8 @@ import { mkdir, readFile, writeFile } from "node:fs/promises"
 import path from "node:path"
 import { promisify } from "node:util"
 import { cookies } from "next/headers"
-import { readCollection, updateCollection } from "@/lib/demo-store"
-import type { UserProfile } from "@/lib/mock-data"
+import type { StoredUser } from "@/lib/records"
+import { getStore, isServerless } from "@/lib/store"
 
 const scrypt = promisify(scryptCallback) as (
   password: string,
@@ -23,13 +23,7 @@ const scrypt = promisify(scryptCallback) as (
 export const SESSION_COOKIE = "lenor_session"
 const SESSION_DAYS = 14
 
-interface StoredUser extends UserProfile {
-  passwordHash: string
-  passwordSalt: string
-  createdAt: string
-}
-
-export interface SessionUser extends UserProfile {
+export interface SessionUser extends Omit<StoredUser, "passwordHash" | "passwordSalt" | "createdAt"> {
   isAdmin: boolean
 }
 
@@ -50,6 +44,11 @@ async function getSecret(): Promise<Buffer> {
   if (fromEnv && fromEnv.length >= 32) {
     cachedSecret = Buffer.from(fromEnv)
     return cachedSecret
+  }
+
+  // Vercel can't keep a generated secret on disk, so it must be configured.
+  if (isServerless) {
+    throw new Error("SESSION_SECRET (32+ characters) must be set in the Vercel project's environment variables")
   }
 
   const secretPath = path.join(process.cwd(), ".data", ".session-secret")
@@ -141,11 +140,7 @@ export async function createUser(
     createdAt: new Date().toISOString(),
   }
 
-  const created = await updateCollection<StoredUser, boolean>("users", (users) => {
-    if (users.some((u) => u.email === email)) return false
-    users.push(user)
-    return true
-  })
+  const created = await getStore().users.insert(user)
 
   return created ? toSessionUser(user) : "exists"
 }
@@ -154,8 +149,7 @@ export async function checkCredentials(
   email: string,
   password: string,
 ): Promise<SessionUser | null> {
-  const users = await readCollection<StoredUser>("users")
-  const user = users.find((u) => u.email === email.trim().toLowerCase())
+  const user = await getStore().users.byEmail(email.trim().toLowerCase())
 
   if (!user) {
     // Spend the same time as a real check so emails can't be probed.
@@ -217,10 +211,11 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 
     if (!uid || typeof exp !== "number" || exp < Date.now()) return null
 
-    const users = await readCollection<StoredUser>("users")
-    const user = users.find((u) => u.id === uid)
+    const user = await getStore().users.byId(uid)
     return user ? toSessionUser(user) : null
-  } catch {
+  } catch (error) {
+    // e.g. the database is unreachable: treat as signed out, but say why.
+    console.error("Lenor: could not load the signed-in user:", error)
     return null
   }
 }

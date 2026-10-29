@@ -8,6 +8,10 @@ import { queryCatalogue, type CatalogueProduct } from "@/lib/catalogue"
 import { CATEGORIES, formatNumber } from "@/lib/constants"
 import { forViewer } from "@/lib/pricing-visibility"
 
+
+// Amrod can take a while on a fresh server; give it time.
+export const maxDuration = 60
+
 // Stock and prices change, so never freeze this page at build time.
 export const dynamic = "force-dynamic"
 

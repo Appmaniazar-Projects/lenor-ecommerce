@@ -1,9 +1,16 @@
 import "server-only"
 
-import type { Order, QuoteRequest } from "@/lib/mock-data"
+import type { Order, QuoteRequest, UserProfile } from "@/lib/mock-data"
 import type { SessionUser } from "@/lib/auth"
 
-/** What's saved in .data/orders.json. */
+/** A customer account, including the password hash. Never sent to browsers. */
+export interface StoredUser extends UserProfile {
+  passwordHash: string
+  passwordSalt: string
+  createdAt: string
+}
+
+/** A saved order (Supabase lenor_orders, or .data/orders.json). */
 export type StoredOrder = Order & {
   userId: string
   contactEmail: string
@@ -12,7 +19,7 @@ export type StoredOrder = Order & {
   billingAddress: string
 }
 
-/** What's saved in .data/quotes.json. `userId` is null for guest quotes. */
+/** A saved quote request. `userId` is null for guest quotes. */
 export type StoredQuote = QuoteRequest & {
   userId: string | null
   logoFileName?: string
@@ -34,8 +41,4 @@ export function publicRecord<T extends { userId?: string | null }>(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { userId, ...rest } = record
   return rest
-}
-
-export function sortNewestFirst<T extends { date: string }>(records: T[]): T[] {
-  return [...records].sort((a, b) => b.date.localeCompare(a.date))
 }

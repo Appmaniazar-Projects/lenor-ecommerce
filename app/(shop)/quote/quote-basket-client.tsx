@@ -64,6 +64,57 @@ const ACCEPTED_LOGO_TYPES =
   ".ai,.eps,.pdf,.svg,.png,.jpg,.jpeg,.webp,.tif,.tiff"
 const MAX_LOGO_MB = 20
 
+/**
+ * Uploads a logo. On Vercel the file goes straight to Supabase Storage
+ * (requests to the site are capped at ~4.5 MB); otherwise it's posted here.
+ */
+async function uploadLogo(
+  file: File
+): Promise<{ fileId: string; fileName?: string; kind?: string }> {
+  const json = async (response: Response) => {
+    const result = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(result.error || "Logo upload failed.")
+    return result
+  }
+
+  const start = await json(
+    await fetch("/api/logo-upload/start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fileName: file.name, size: file.size }),
+    })
+  )
+
+  if (start.mode === "direct") {
+    const put = await fetch(start.uploadUrl, {
+      method: "PUT",
+      headers: {
+        "content-type": start.contentType,
+        "x-upsert": "false",
+        "cache-control": "max-age=3600",
+      },
+      body: file,
+    })
+    if (!put.ok) throw new Error("Logo upload failed. Please try again.")
+
+    return json(
+      await fetch("/api/logo-upload/finish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileId: start.fileId }),
+      })
+    )
+  }
+
+  const formData = new FormData()
+  formData.append("file", file)
+  const result = await json(
+    await fetch("/api/logo-upload", { method: "POST", body: formData })
+  )
+  if (!result.fileId) throw new Error("Logo upload failed.")
+  return result
+}
+
 export function QuoteBasketClient() {
   const { items, itemCount, estimatedSubtotal, removeItem, updateQuantity, updateItem, clearQuote } = useQuote()
   const { user, isAuthenticated } = useAuth()
@@ -123,19 +174,7 @@ export function QuoteBasketClient() {
   setUploadingLogo(true)
 
   try {
-    const formData = new FormData()
-    formData.append("file", file)
-
-    const response = await fetch("/api/logo-upload", {
-      method: "POST",
-      body: formData,
-    })
-
-    const result = await response.json().catch(() => ({}))
-
-    if (!response.ok || !result.success || !result.fileId) {
-      throw new Error(result.error || "Logo upload failed.")
-    }
+    const result = await uploadLogo(file)
 
     setLogoFileId(result.fileId)
     setLogoFileName(result.fileName || file.name)

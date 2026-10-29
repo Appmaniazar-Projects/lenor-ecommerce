@@ -6,8 +6,12 @@ import { notifyNewOrder } from "@/lib/notify"
 import { getProductById } from "@/lib/catalogue"
 import { VAT_RATE } from "@/lib/constants"
 import type { Order } from "@/lib/mock-data"
-import { updateCollection } from "@/lib/demo-store"
+import { getStore } from "@/lib/store"
 import { publicRecord, type StoredOrder } from "@/lib/records"
+
+
+// Amrod can take a while on a fresh server; give it time.
+export const maxDuration = 60
 
 export const runtime = "nodejs"
 
@@ -178,9 +182,7 @@ export async function POST(request: Request) {
       userId: user.id,
     }
 
-    await updateCollection<StoredOrder, void>("orders", (orders) => {
-      orders.push(order)
-    })
+    await getStore().orders.insert(order)
 
     after(() => notifyNewOrder(order))
 

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { getSessionUser } from "@/lib/auth"
-import { readCollection } from "@/lib/demo-store"
-import { canView, publicRecord, type StoredOrder } from "@/lib/records"
+import { canView, publicRecord } from "@/lib/records"
+import { getStore } from "@/lib/store"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -18,10 +18,7 @@ export async function GET(
 
   try {
     const { id } = await params
-    const orders = await readCollection<StoredOrder>("orders")
-    const order = orders.find(
-      (item) => item.id === id || item.orderNumber === id,
-    )
+    const order = await getStore().orders.get(id)
 
     // Someone else's order looks exactly like a missing one.
     if (!order || !canView(order, user)) {

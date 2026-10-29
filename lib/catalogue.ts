@@ -1,5 +1,6 @@
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises"
-import path from "node:path"
+import { gunzipSync, gzipSync } from "node:zlib"
+import { waitUntil } from "@vercel/functions"
+import { getStore } from "@/lib/store"
 import {
   getAmrodProducts,
   getAmrodProductsWithBranding,
@@ -656,7 +657,7 @@ async function loadCatalogue(): Promise<void> {
   state.byId = byId
   state.builtAt = Date.now()
 
-  void saveSnapshot(items)
+  keepAlive(saveSnapshot(items))
 
   console.log(
     `Lenor: catalogue rebuilt (${items.length} products) in ${(
@@ -666,23 +667,22 @@ async function loadCatalogue(): Promise<void> {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Disk snapshot: lets a restarted server answer straight away, even  */
-/*  during Amrod's nightly maintenance window.                          */
+/*  Snapshot (.data/ or Supabase Storage): lets a new server or Vercel  */
+/*  instance answer straight away, even during Amrod's maintenance.    */
 /* ------------------------------------------------------------------ */
 
-const SNAPSHOT_PATH = path.join(process.cwd(), ".data", "catalogue-snapshot.json")
+const SNAPSHOT_KEY = "catalogue-snapshot.json.gz"
 const SNAPSHOT_EVERY_MS = 10 * 60_000
 let lastSnapshotAt = 0
 
-async function saveSnapshot(items: IndexedProduct[]): Promise<void> {
-  if (Date.now() - lastSnapshotAt < SNAPSHOT_EVERY_MS) return
+async function saveSnapshot(items: IndexedProduct[], force = false): Promise<void> {
+  if (!force && Date.now() - lastSnapshotAt < SNAPSHOT_EVERY_MS) return
   lastSnapshotAt = Date.now()
 
   try {
-    await mkdir(path.dirname(SNAPSHOT_PATH), { recursive: true })
-    const tmp = `${SNAPSHOT_PATH}.tmp`
-    await writeFile(tmp, JSON.stringify({ savedAt: Date.now(), items }), "utf8")
-    await rename(tmp, SNAPSHOT_PATH)
+    const bytes = gzipSync(JSON.stringify({ savedAt: Date.now(), items }))
+    await getStore().cache.write(SNAPSHOT_KEY, bytes)
+    console.log(`Lenor: catalogue snapshot saved (${(bytes.length / 1048576).toFixed(1)} MB)`)
   } catch (error) {
     console.warn("Lenor: could not save catalogue snapshot:", error)
   }
@@ -690,7 +690,9 @@ async function saveSnapshot(items: IndexedProduct[]): Promise<void> {
 
 async function loadSnapshot(): Promise<boolean> {
   try {
-    const parsed = JSON.parse(await readFile(SNAPSHOT_PATH, "utf8")) as {
+    const bytes = await getStore().cache.read(SNAPSHOT_KEY)
+    if (!bytes) return false
+    const parsed = JSON.parse(gunzipSync(bytes).toString("utf8")) as {
       savedAt: number
       items: IndexedProduct[]
     }
@@ -714,6 +716,25 @@ async function loadSnapshot(): Promise<boolean> {
   } catch {
     return false
   }
+}
+
+/**
+ * Lets background work finish after the response is sent. On Vercel the
+ * function would otherwise be frozen mid-refresh; elsewhere it just runs.
+ */
+function keepAlive(promise: Promise<unknown>) {
+  try {
+    waitUntil(promise)
+  } catch {
+    // Not inside a Vercel request: nothing to extend.
+  }
+}
+
+/** Fetches everything from Amrod now and saves the snapshot (cron job). */
+export async function rebuildCatalogueNow(): Promise<number> {
+  await refreshCatalogue()
+  await saveSnapshot(state.items, true)
+  return state.items.length
 }
 
 function refreshCatalogue(): Promise<void> {
@@ -750,10 +771,12 @@ async function getCatalogue(): Promise<IndexedProduct[]> {
   }
 
   if (Date.now() - state.builtAt > LIVE_TTL_MS) {
-    refreshCatalogue().catch((error) => {
-      console.error("Lenor: background catalogue refresh failed:", error)
-      state.builtAt = Date.now() - LIVE_TTL_MS + RETRY_AFTER_FAILURE_MS
-    })
+    keepAlive(
+      refreshCatalogue().catch((error) => {
+        console.error("Lenor: background catalogue refresh failed:", error)
+        state.builtAt = Date.now() - LIVE_TTL_MS + RETRY_AFTER_FAILURE_MS
+      })
+    )
   }
 
   return state.items

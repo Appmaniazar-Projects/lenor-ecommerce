@@ -1,11 +1,11 @@
 import "server-only"
 
-import { readFile } from "node:fs/promises"
+import { randomUUID } from "node:crypto"
 import path from "node:path"
-import { readCollection } from "@/lib/demo-store"
+import { getStore } from "@/lib/store"
 
-export const UPLOAD_DIR = path.join(process.cwd(), ".data", "uploads")
 export const MAX_LOGO_BYTES = 20 * 1024 * 1024
+export const ACCEPTED_LOGO_LABEL = "AI, EPS, PDF, SVG, PNG, JPG, WebP or TIFF"
 
 export interface StoredUpload {
   id: string
@@ -87,14 +87,58 @@ export const LOGO_RULES: Record<string, FileRule> = {
 
 export const ACCEPTED_LOGO_EXTENSIONS = Object.keys(LOGO_RULES)
 
-const ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+/**
+ * Checks a logo's name and size before any bytes are stored, and builds
+ * the record. Returns an error message for the customer instead when not OK.
+ */
+export function prepareUpload(
+  rawName: unknown,
+  size: unknown,
+  userId: string | null,
+): { upload: StoredUpload } | { error: string } {
+  const name = typeof rawName === "string" ? rawName : ""
+  const fileName = path.basename(name).replace(/[^\w.\- ()]/g, "_").slice(0, 200)
+  const extension = path.extname(fileName).toLowerCase()
+  const rule = LOGO_RULES[extension]
+  const bytes = Number(size)
 
-export async function findUpload(id: string): Promise<StoredUpload | null> {
-  if (!ID_PATTERN.test(id)) return null
-  const uploads = await readCollection<StoredUpload>("uploads")
-  return uploads.find((upload) => upload.id === id) ?? null
+  if (!fileName || !rule) return { error: `Use an ${ACCEPTED_LOGO_LABEL} file.` }
+  if (!Number.isFinite(bytes) || bytes <= 0 || bytes > MAX_LOGO_BYTES) {
+    return { error: "The file must be 20 MB or smaller." }
+  }
+
+  return {
+    upload: {
+      id: randomUUID(),
+      fileName,
+      extension,
+      contentType: rule.contentType,
+      size: bytes,
+      kind: rule.kind,
+      uploadedAt: new Date().toISOString(),
+      userId,
+    },
+  }
 }
 
-export async function readUploadFile(upload: StoredUpload): Promise<Buffer> {
-  return readFile(path.join(UPLOAD_DIR, `${upload.id}${upload.extension}`))
+/** Checks the real bytes: size limit and file signature for the extension. */
+export function checkUploadBytes(upload: StoredUpload, bytes: Buffer): string | null {
+  const rule = LOGO_RULES[upload.extension]
+  if (!rule) return `Use an ${ACCEPTED_LOGO_LABEL} file.`
+  if (bytes.length === 0 || bytes.length > MAX_LOGO_BYTES) {
+    return "The file must be 20 MB or smaller."
+  }
+  if (!rule.matches(bytes)) {
+    return `This doesn't look like a real ${upload.extension.slice(1).toUpperCase()} file.`
+  }
+  return null
+}
+
+/** A verified upload, or null. */
+export function findUpload(id: string): Promise<StoredUpload | null> {
+  return getStore().uploads.get(id)
+}
+
+export function readUploadFile(upload: StoredUpload): Promise<Buffer> {
+  return getStore().uploads.readFile(upload)
 }

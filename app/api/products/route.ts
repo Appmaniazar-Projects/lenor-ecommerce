@@ -6,6 +6,10 @@ import {
 } from "@/lib/catalogue"
 import { canSeePrices, withoutPrices } from "@/lib/pricing-visibility"
 
+
+// Amrod can take a while on a fresh server; give it time.
+export const maxDuration = 60
+
 export const runtime = "nodejs"
 
 export async function GET(request: Request) {

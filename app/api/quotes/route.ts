@@ -6,14 +6,12 @@ import { notifyNewQuote } from "@/lib/notify"
 import { getProductById } from "@/lib/catalogue"
 import { methodsForColour, type BrandingChoice } from "@/lib/branding"
 import type { QuoteRequest } from "@/lib/mock-data"
-import { readCollection, updateCollection } from "@/lib/demo-store"
-import { findUpload } from "@/lib/uploads"
-import {
-  canView,
-  publicRecord,
-  sortNewestFirst,
-  type StoredQuote,
-} from "@/lib/records"
+import { getStore } from "@/lib/store"
+import { publicRecord, type StoredQuote } from "@/lib/records"
+
+
+// Amrod can take a while on a fresh server; give it time.
+export const maxDuration = 60
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -52,9 +50,8 @@ export async function GET() {
   }
 
   try {
-    const quotes = await readCollection<StoredQuote>("quotes")
-    const visible = quotes.filter((quote) => canView(quote, user))
-    return NextResponse.json(sortNewestFirst(visible).map(publicRecord))
+    const quotes = await getStore().quotes.list(user.isAdmin ? null : user.id)
+    return NextResponse.json(quotes.map(publicRecord))
   } catch (error) {
     console.error("Failed to load quotes:", error)
     return NextResponse.json(
@@ -125,7 +122,7 @@ export async function POST(request: Request) {
     }
 
     const logoFileId = text(body.logoFileId, 64)
-    const logo = logoFileId ? await findUpload(logoFileId) : null
+    const logo = logoFileId ? await getStore().uploads.get(logoFileId) : null
 
     if (logoFileId && !logo) {
       return NextResponse.json(
@@ -259,9 +256,7 @@ export async function POST(request: Request) {
       userId: user?.id ?? null,
     }
 
-    await updateCollection<StoredQuote, void>("quotes", (quotes) => {
-      quotes.push(quote)
-    })
+    await getStore().quotes.insert(quote)
     recentQuotes.get(ipKey)?.push(Date.now())
 
     // Sent after the response so the customer doesn't wait for email.

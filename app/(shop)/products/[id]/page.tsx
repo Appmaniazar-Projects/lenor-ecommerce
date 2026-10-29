@@ -4,6 +4,10 @@ import { getProductById } from "@/lib/catalogue"
 import { forViewer } from "@/lib/pricing-visibility"
 import { ProductDetailClient } from "./product-detail-client"
 
+
+// Amrod can take a while on a fresh server; give it time.
+export const maxDuration = 60
+
 interface Props {
   params: Promise<{ id: string }>
 }

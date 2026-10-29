@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { getSessionUser } from "@/lib/auth"
-import { readCollection } from "@/lib/demo-store"
-import { canView, publicRecord, type StoredQuote } from "@/lib/records"
+import { canView, publicRecord } from "@/lib/records"
+import { getStore } from "@/lib/store"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -18,10 +18,7 @@ export async function GET(
 
   try {
     const { id } = await params
-    const quotes = await readCollection<StoredQuote>("quotes")
-    const quote = quotes.find(
-      (item) => item.id === id || item.quoteNumber === id,
-    )
+    const quote = await getStore().quotes.get(id)
 
     if (!quote || !canView(quote, user)) {
       return NextResponse.json({ error: "Quote not found." }, { status: 404 })
