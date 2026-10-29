@@ -90,7 +90,7 @@ function codeList(v: unknown, keys: string[] = []): string[] {
       ? v.split(/[,;]/)
       : []
   return items
-    .map((e) => (isObj(e) ? str(pick(e, keys)) : str(e)))
+    .flatMap((e) => (isObj(e) ? str(pick(e, keys)) : str(e)).split(/[,;]/))
     .map((c) => c.trim().toUpperCase())
     .filter(Boolean)
 }
@@ -145,14 +145,16 @@ function readMethod(raw: unknown): BrandingMethod | null {
   const sizeText = str(pick(raw, SIZE_TEXT_KEYS))
 
   const excludedColours = codeList(pick(raw, EXCLUSION_KEYS), EXCLUSION_CODE_KEYS)
-  const colours = pick(raw, MAX_COLOUR_KEYS)
-  const coloursText = str(colours)
+  // Amrod sends "N/A", "Full Colour", "1 Colour", "4 Colours"...
+  const coloursText = str(pick(raw, MAX_COLOUR_KEYS))
+  const meaningless = /^(n\/?a|none|-|0)?$/i.test(coloursText)
+  const colourCount = coloursText.match(/^\s*(\d+)/)
 
   return {
     code: code || name,
     name,
-    maxColours: num(colours),
-    coloursLabel: coloursText || null,
+    maxColours: colourCount ? num(colourCount[1]) : null,
+    coloursLabel: meaningless || colourCount ? null : coloursText,
     maxSize: width && height ? `${width} x ${height} mm` : sizeText || null,
     excludedColours,
   }
