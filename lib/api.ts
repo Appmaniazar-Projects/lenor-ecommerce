@@ -221,6 +221,9 @@ export interface SubmitQuoteData {
     size: string
     brandingNotes: string
     brandingPosition: string
+    branded?: boolean
+    /** Codes only: the server looks up names from Amrod's data. */
+    brandings?: { positionCode: string; methodCode: string }[]
   }[]
   contactName: string
   contactEmail: string

@@ -233,6 +233,13 @@ export function getAmrodProducts<T>() {
   });
 }
 
+/** Same products plus branding positions, methods and the guide PDF. */
+export function getAmrodProductsWithBranding<T>() {
+  return amrodRequest<T>("/api/v1/Products/GetProductsAndBranding", {
+    cacheTtlSeconds: 600,
+  });
+}
+
 export function getAmrodPrices<T>() {
   return amrodRequest<T>("/api/v1/Prices/", {
     cacheTtlSeconds: 300,

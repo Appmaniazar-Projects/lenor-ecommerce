@@ -1,3 +1,4 @@
+import type { BrandingChoice, ProductBranding } from "./branding"
 import type { CategoryId, OrderStatus, QuoteStatus } from "./constants"
 
 /* ------------------------------------------------------------------ */
@@ -26,6 +27,7 @@ export interface Product {
   featured: boolean
   variants?: {
   fullCode: string
+  colourCode?: string | null
   color: string
   size: string
   price: number
@@ -41,6 +43,7 @@ export interface Product {
   stockOnHand?: number
   incomingStock?: number
   colorImages?: Record<string, string[]>
+  branding?: ProductBranding
 }
 
 /* ------------------------------------------------------------------ */
@@ -79,6 +82,8 @@ export interface QuoteItem {
   brandingNotes: string
   brandingPosition: string
   brandingMethod?: string
+  /** Each position the customer chose a branding type for. Empty = unbranded. */
+  brandings?: BrandingChoice[]
 }
 
 export interface QuoteRequest {

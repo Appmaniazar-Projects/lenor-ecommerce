@@ -95,9 +95,14 @@ export function ProductCard({ product }: ProductCardProps) {
       size: defaultSize,
       image: smartImage ?? "",
       brandingNotes: "",
-      brandingPosition: product.brandingPositions[0]?.label ?? "",
+      brandingPosition: "",
       brandingMethod: "",
       brandingPositions: product.brandingPositions,
+      // Starts unbranded; branding can be chosen in the quote basket.
+      colourCode: defaultVariant?.colourCode ?? null,
+      branding: product.branding,
+      branded: false,
+      brandings: [],
     })
 
     toast.success(`${product.name} added to quote basket`)

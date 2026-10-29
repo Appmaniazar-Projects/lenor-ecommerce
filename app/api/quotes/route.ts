@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto"
 import { NextResponse } from "next/server"
 import { getSessionUser } from "@/lib/auth"
 import { getProductById } from "@/lib/catalogue"
+import { methodsForColour, type BrandingChoice } from "@/lib/branding"
 import type { QuoteRequest } from "@/lib/mock-data"
 import { readCollection, updateCollection } from "@/lib/demo-store"
 import { findUpload } from "@/lib/uploads"
@@ -25,6 +26,8 @@ type QuoteBody = {
     brandingNotes?: string
     brandingPosition?: string
     brandingMethod?: string
+    branded?: boolean
+    brandings?: { positionCode?: string; methodCode?: string }[]
   }[]
   logoFileId?: string
   contactName?: string
@@ -153,6 +156,51 @@ export async function POST(request: Request) {
         )
       }
 
+      // Branding: only positions and types Amrod lists for this colour.
+      const brandings: BrandingChoice[] = []
+      const requested = item.branded && Array.isArray(item.brandings) ? item.brandings : []
+
+      for (const choice of requested.slice(0, 20)) {
+        const position = product.branding.positions.find(
+          (p) => p.code === text(choice?.positionCode, 64)
+        )
+        const method = position
+          ? methodsForColour(position, variant.colourCode).find(
+              (m) => m.code === text(choice?.methodCode, 64)
+            )
+          : undefined
+
+        if (!position || !method) {
+          return NextResponse.json(
+            { error: `A branding option chosen for ${product.name} is no longer available. Please choose it again.` },
+            { status: 400 },
+          )
+        }
+        if (!brandings.some((b) => b.positionCode === position.code)) {
+          brandings.push({
+            positionCode: position.code,
+            positionName: position.name,
+            methodCode: method.code,
+            methodName: method.name,
+          })
+        }
+      }
+
+      const missingRequired = brandings.length > 0
+        ? product.branding.positions.filter(
+            (p) =>
+              p.required &&
+              methodsForColour(p, variant.colourCode).length > 0 &&
+              !brandings.some((b) => b.positionCode === p.code),
+          )
+        : []
+      if (missingRequired.length > 0) {
+        return NextResponse.json(
+          { error: `${product.name} needs a branding type for ${missingRequired.map((p) => p.name).join(", ")}.` },
+          { status: 400 },
+        )
+      }
+
       quoteItems.push({
         productId: product.id,
         productName: product.name,
@@ -161,8 +209,11 @@ export async function POST(request: Request) {
         color: variant.color,
         size: variant.size,
         brandingNotes: text(item.brandingNotes, 1000),
-        brandingPosition: text(item.brandingPosition, 120),
-        brandingMethod: text(item.brandingMethod, 120) || undefined,
+        brandingPosition:
+          brandings.map((b) => b.positionName).join(", ") ||
+          (item.branded ? text(item.brandingPosition, 120) : ""),
+        brandingMethod: brandings.map((b) => b.methodName).join(", ") || undefined,
+        brandings,
       })
     }
 

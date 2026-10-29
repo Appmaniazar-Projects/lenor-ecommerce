@@ -2,9 +2,11 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises"
 import path from "node:path"
 import {
   getAmrodProducts,
+  getAmrodProductsWithBranding,
   getAmrodPrices,
   getAmrodStock,
 } from "@/lib/amrod"
+import { readProductBranding, type ProductBranding } from "@/lib/branding"
 
 /* ------------------------------------------------------------------ */
 /*  Raw Amrod shapes (only the fields we use)                          */
@@ -96,6 +98,8 @@ interface AmrodStock {
 
 export interface CatalogueVariant {
   fullCode: string
+  /** Amrod colour code, e.g. "NY". Used for branding exclusions. */
+  colourCode: string | null
   color: string
   size: string
   price: number
@@ -136,6 +140,8 @@ export interface CatalogueProduct {
   incomingStock: number
   minOrderQty: number
   brandingPositions: { id: string; label: string; description: string }[]
+  /** Positions, branding types and guide PDF from Amrod. */
+  branding: ProductBranding
   featured: boolean
 }
 
@@ -200,7 +206,7 @@ interface BaseProduct extends Omit<
   | "stockOnHand"
   | "incomingStock"
 > {
-  baseVariants: { fullCode: string; color: string; size: string }[]
+  baseVariants: { fullCode: string; colourCode: string | null; color: string; size: string }[]
   searchText: string
 }
 
@@ -362,6 +368,7 @@ function buildBase(raw: AmrodProduct[]): BaseProduct[] {
 
     const baseVariants = validVariants.map((v) => ({
       fullCode: v.fullCode,
+      colourCode: v.codeColour?.trim().toUpperCase() || null,
       color: v.codeColourName ?? "Standard",
       size: v.codeSizeName ?? "One Size",
     }))
@@ -456,6 +463,10 @@ function buildBase(raw: AmrodProduct[]): BaseProduct[] {
       .toLowerCase()
 
     const minimum = Number(product.minimum)
+    const branding = readProductBranding(
+      product as unknown as Record<string, unknown>,
+      product.brandingTemplates ?? []
+    )
 
     result.push({
       id: product.simpleCode,
@@ -480,13 +491,12 @@ function buildBase(raw: AmrodProduct[]): BaseProduct[] {
       sizeRange:
         sizes.length > 1 ? `${sizes[0]} - ${sizes[sizes.length - 1]}` : null,
       minOrderQty: Number.isFinite(minimum) && minimum > 0 ? minimum : 1,
-      brandingPositions: (product.brandingTemplates ?? []).map(
-        (template, index) => ({
-          id: `bp-${product.simpleCode}-${index}`,
-          label: template.name,
-          description: `Branding template position ${template.position}`,
-        })
-      ),
+      brandingPositions: branding.positions.map((position, index) => ({
+        id: `bp-${product.simpleCode}-${index}`,
+        label: position.name,
+        description: position.description,
+      })),
+      branding,
       featured: product.promotion === "1",
       baseVariants,
       searchText,
@@ -574,11 +584,40 @@ function buildStockMap(
   return variantRows
 }
 
+/**
+ * Prefers the "with branding" product list. If that call fails (or the
+ * account can't use it), falls back to the plain list so the shop still works.
+ */
+let brandingEndpointFailedAt = 0
+const BRANDING_RETRY_MS = 30 * 60_000
+
+async function loadRawProducts(): Promise<AmrodProduct[]> {
+  const useBranding =
+    process.env.AMROD_USE_BRANDING_ENDPOINT !== "false" &&
+    Date.now() - brandingEndpointFailedAt > BRANDING_RETRY_MS
+
+  if (useBranding) {
+    try {
+      const products = await getAmrodProductsWithBranding<AmrodProduct[]>()
+      if (Array.isArray(products) && products.length > 0) return products
+      throw new Error("empty product list")
+    } catch (error) {
+      brandingEndpointFailedAt = Date.now()
+      console.warn(
+        "Lenor: GetProductsAndBranding failed, using Products/ without branding types:",
+        error instanceof Error ? error.message : error
+      )
+    }
+  }
+
+  return getAmrodProducts<AmrodProduct[]>()
+}
+
 async function loadCatalogue(): Promise<void> {
   const started = performance.now()
 
   const [rawProducts, prices, stock] = await Promise.all([
-    getAmrodProducts<AmrodProduct[]>(),
+    loadRawProducts(),
     getAmrodPrices<AmrodPrice[]>(),
     getAmrodStock<AmrodStock[]>(),
   ])
@@ -588,6 +627,13 @@ async function loadCatalogue(): Promise<void> {
   if (rawProducts !== state.lastRawProducts) {
     state.base = buildBase(rawProducts ?? [])
     state.lastRawProducts = rawProducts
+
+    const withMethods = state.base.filter((p) =>
+      p.branding.positions.some((pos) => pos.methods.length > 0)
+    ).length
+    console.log(
+      `Lenor: ${withMethods} of ${state.base.length} products have branding types`
+    )
   }
 
   const priceMap = new Map<string, number>()
@@ -643,6 +689,12 @@ async function loadSnapshot(): Promise<boolean> {
       items: IndexedProduct[]
     }
     if (!Array.isArray(parsed.items) || parsed.items.length === 0) return false
+
+    // Snapshots from older versions have no branding data.
+    for (const item of parsed.items) {
+      item.product.branding ??= { positions: [], guideUrl: null }
+      for (const v of item.product.variants) v.colourCode ??= null
+    }
 
     state.items = parsed.items
     state.byId = new Map(parsed.items.map((item) => [item.product.id, item]))

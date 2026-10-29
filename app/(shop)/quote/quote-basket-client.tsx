@@ -31,14 +31,12 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { QuantitySelector } from "@/components/products/quantity-selector"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { useQuote } from "@/contexts/quote-context"
+import {
+  BrandingSelector,
+  brandingProblem,
+  validChoices,
+} from "@/components/products/branding-selector"
 import { useAuth } from "@/contexts/auth-context"
 import { submitQuoteRequest } from "@/lib/api"
 import { formatPrice, PRICES_REQUIRE_LOGIN } from "@/lib/constants"
@@ -153,6 +151,20 @@ export function QuoteBasketClient() {
 }
 
   async function onSubmit(data: QuoteFormValues) {
+    for (const item of items) {
+      if (!item.branding) continue
+      const problem = brandingProblem(
+        item.branding,
+        item.colourCode,
+        Boolean(item.branded),
+        item.brandings ?? []
+      )
+      if (problem) {
+        toast.error(`${item.productName} (${item.color}, ${item.size}): ${problem}`)
+        return
+      }
+    }
+
     setSubmitting(true)
     try {
       const result = await submitQuoteRequest({
@@ -163,6 +175,13 @@ export function QuoteBasketClient() {
           size: i.size,
           brandingNotes: i.brandingNotes,
           brandingPosition: i.brandingPosition,
+          branded: Boolean(i.branded),
+          brandings:
+            i.branded && i.branding
+              ? validChoices(i.branding, i.colourCode, i.brandings ?? []).map(
+                  ({ positionCode, methodCode }) => ({ positionCode, methodCode })
+                )
+              : [],
         })),
         ...data,
         specialInstructions: data.specialInstructions ?? "",
@@ -334,39 +353,40 @@ export function QuoteBasketClient() {
 
                       {/* Branding notes */}
                       <div className="flex flex-col gap-1.5">
-                        <label className="text-xs font-medium text-foreground">
-                          Branding position
-                        </label>
-                        {item.brandingPositions && item.brandingPositions.length > 0 ? (
-                          <Select
-                            value={item.brandingPosition || undefined}
-                            onValueChange={(value) =>
+                        {item.branding ? (
+                          <BrandingSelector
+                            compact
+                            idPrefix={`b-${item.productId}-${item.color}-${item.size}`}
+                            branding={item.branding}
+                            colourCode={item.colourCode}
+                            branded={Boolean(item.branded)}
+                            onBrandedChange={(value) =>
                               updateItem({
                                 productId: item.productId,
                                 color: item.color,
                                 size: item.size,
-                                brandingPosition: value,
+                                branded: value,
                               })
                             }
-                          >
-                            <SelectTrigger className="h-9 w-full sm:w-64">
-                              <SelectValue placeholder="Choose a position" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {item.brandingPositions.map((position) => (
-                                <SelectItem key={position.id} value={position.label}>
-                                  {position.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            choices={item.brandings ?? []}
+                            onChoicesChange={(choices) =>
+                              updateItem({
+                                productId: item.productId,
+                                color: item.color,
+                                size: item.size,
+                                brandings: choices,
+                                brandingPosition: choices.map((c) => c.positionName).join(", "),
+                                brandingMethod: choices.map((c) => c.methodName).join(", "),
+                              })
+                            }
+                          />
                         ) : (
                           <p className="text-xs text-muted-foreground">
-                            {item.brandingPosition || "Describe where you want your logo in the notes below."}
+                            Branding: {item.brandingPosition || "describe it in the notes below"}
                           </p>
                         )}
                         <Textarea
-                          placeholder="Add branding notes (e.g., logo colour, placement details)..."
+                          placeholder="Notes for Lenor (logo colours, Pantone references, size)..."
                           value={item.brandingNotes}
                           onChange={(e) =>
                             updateItem({

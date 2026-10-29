@@ -214,9 +214,21 @@ export function OrderDetailClient({ id }: { id: string }) {
                       </TableCell>
                       <TableCell className="text-right">{item.quantity}</TableCell>
                       <TableCell className="text-muted-foreground">
-                        {[item.brandingPosition, item.brandingMethod]
-                          .filter(Boolean)
-                          .join(" · ") || "-"}
+                        {item.brandings && item.brandings.length > 0 ? (
+                          <ul className="flex flex-col gap-0.5">
+                            {item.brandings.map((b) => (
+                              <li key={b.positionCode}>
+                                <span className="text-foreground">{b.positionName}</span>
+                                {": "}
+                                {b.methodName}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : item.brandingPosition ? (
+                          item.brandingPosition
+                        ) : (
+                          "Unbranded"
+                        )}
                       </TableCell>
                       <TableCell className="max-w-[200px] truncate text-muted-foreground">
                         {item.brandingNotes}

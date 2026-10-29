@@ -8,17 +8,9 @@ import {
   FileText,
   ShoppingCart,
   ArrowLeft,
-  MapPin,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 
 import {
@@ -40,6 +32,12 @@ import {
 
 import { StockIndicator } from "@/components/products/stock-indicator"
 import { QuantitySelector } from "@/components/products/quantity-selector"
+import {
+  BrandingSelector,
+  brandingProblem,
+  validChoices,
+} from "@/components/products/branding-selector"
+import { NO_BRANDING, summariseBranding, type BrandingChoice } from "@/lib/branding"
 
 import { useCart } from "@/contexts/cart-context"
 import { useQuote } from "@/contexts/quote-context"
@@ -130,6 +128,10 @@ export function ProductDetailClient({ product }: Props) {
   const [selectedImage, setSelectedImage] = useState(0)
   const [manuallySelectedImage, setManuallySelectedImage] =
     useState(false)
+  const [branded, setBranded] = useState(false)
+  const [brandingChoices, setBrandingChoices] = useState<BrandingChoice[]>([])
+
+  const branding = product.branding ?? NO_BRANDING
 
   const categoryName =
     CATEGORIES.find((category) => category.id === product.category)
@@ -141,6 +143,8 @@ export function ProductDetailClient({ product }: Props) {
       variant.color === selectedColor &&
       variant.size === selectedSize
   )
+
+  const colourCode = selectedVariant?.colourCode ?? null
 
   // Never treat a missing variant price as a valid product price.
   const selectedPrice = selectedVariant?.price ?? 0
@@ -225,6 +229,14 @@ export function ProductDetailClient({ product }: Props) {
   function handleAddToQuote() {
     if (!validateQuantity() || !selectedVariant) return
 
+    const problem = brandingProblem(branding, colourCode, branded, brandingChoices)
+    if (problem) {
+      toast.error(problem)
+      return
+    }
+
+    const chosen = branded ? validChoices(branding, colourCode, brandingChoices) : []
+
     addToQuote({
       productId: product.id,
       productName: product.name,
@@ -235,12 +247,18 @@ export function ProductDetailClient({ product }: Props) {
       size: selectedSize,
       image: mainImage ?? "",
       brandingNotes: "",
-      brandingPosition: product.brandingPositions[0]?.label ?? "",
-      brandingMethod: "",
+      brandingPosition: branded ? chosen.map((c) => c.positionName).join(", ") : "",
+      brandingMethod: branded ? chosen.map((c) => c.methodName).join(", ") : "",
       brandingPositions: product.brandingPositions ?? [],
+      colourCode,
+      branding,
+      branded,
+      brandings: chosen,
     })
 
-    toast.success(`${product.name} added to quote basket`)
+    toast.success(
+      `${product.name} added to quote basket (${branded ? summariseBranding(chosen) : "unbranded"})`
+    )
   }
 
   function handleAddToCart() {
@@ -251,6 +269,11 @@ export function ProductDetailClient({ product }: Props) {
     }
 
     if (!validateQuantity() || !selectedVariant) return
+
+    if (branded) {
+      toast.info("Branded items are priced on a quote. Use Add to Quote.")
+      return
+    }
 
     if (!hasValidPrice) {
       toast.error("Pricing is currently unavailable for this variant")
@@ -506,6 +529,15 @@ export function ProductDetailClient({ product }: Props) {
 
           <Separator />
 
+          <BrandingSelector
+            branding={branding}
+            colourCode={colourCode}
+            branded={branded}
+            onBrandedChange={setBranded}
+            choices={brandingChoices}
+            onChoicesChange={setBrandingChoices}
+          />
+
           {/* Cart and quote actions */}
           <div className="flex flex-col gap-3 sm:flex-row">
             <Button
@@ -524,6 +556,7 @@ export function ProductDetailClient({ product }: Props) {
               className="flex-1"
               onClick={handleAddToCart}
               disabled={
+                branded ||
                 showPrice &&
                 (!selectedVariant ||
                   !hasValidPrice ||
@@ -536,38 +569,11 @@ export function ProductDetailClient({ product }: Props) {
             </Button>
           </div>
 
-          {/* Branding positions */}
-          {product.brandingPositions.length > 0 && (
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <MapPin className="h-4 w-4 text-accent" />
-                  Branding Positions
-                </CardTitle>
-              </CardHeader>
-
-              <CardContent>
-                <div className="flex flex-col gap-3">
-                  {product.brandingPositions.map((position) => (
-                    <div
-                      key={position.id}
-                      className="flex items-start gap-3"
-                    >
-                      <Badge
-                        variant="secondary"
-                        className="shrink-0"
-                      >
-                        {position.label}
-                      </Badge>
-
-                      <p className="text-sm text-muted-foreground">
-                        {position.description}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+          {branded && (
+            <p className="-mt-3 text-xs text-muted-foreground">
+              Branded items go through a quote: Lenor checks your artwork and
+              confirms branding costs and lead time.
+            </p>
           )}
 
           <Button

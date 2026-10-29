@@ -8,6 +8,7 @@ import {
   useCallback,
   type ReactNode,
 } from "react"
+import type { BrandingChoice, ProductBranding } from "@/lib/branding"
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -30,6 +31,12 @@ export interface QuoteBasketItem {
     label: string
     description: string
   }[]
+  /** Amrod colour code of the variant, for branding exclusions. */
+  colourCode?: string | null
+  /** The product's branding options, so the basket can edit them. */
+  branding?: ProductBranding
+  branded?: boolean
+  brandings?: BrandingChoice[]
 }
 
 interface QuoteState {
@@ -60,8 +67,12 @@ function quoteReducer(state: QuoteState, action: QuoteAction): QuoteState {
       )
       if (idx >= 0) {
         const updated = [...state.items]
+        // Same product, colour and size: add the quantity and keep the
+        // most recent branding choice.
         updated[idx] = {
           ...updated[idx],
+          ...action.payload,
+          brandingNotes: updated[idx].brandingNotes || action.payload.brandingNotes,
           quantity: updated[idx].quantity + action.payload.quantity,
         }
         return { ...state, items: updated }
