@@ -1,15 +1,134 @@
 # Deploying Lenor
 
+**Live:** <https://lenor.co.za> runs on Lenor's VPS at domains.co.za (Ubuntu 24.04,
+`41.222.36.83`) since 30 October 2026. See [docs/DEPLOYMENT-RECORD.md](docs/DEPLOYMENT-RECORD.md)
+for what was done, where everything lives and how SSL renews, and
+[docs/HANDOVER.md](docs/HANDOVER.md) for the code and accounts.
+
 Two ways to host it. Both run the same code:
 
-| | Vercel + Supabase | VPS (Ubuntu) |
+| | VPS (Ubuntu) | Vercel + Supabase |
 |---|---|---|
-| Storage | Supabase (database + file storage) | `.data/` folder on the server |
-| Set up when | Now | When the lenor.co.za server is paid for |
+| Storage | `.data/` folder on the server | Supabase (database + file storage) |
+| Status | **In use** (lenor.co.za) | Optional, not in use |
+
+## Updating the live site
+
+After pushing to `main`, on the server:
+
+```bash
+cd ~/lenor && git pull && pnpm install --frozen-lockfile && pnpm build && pm2 restart lenor
+```
+
+Docs-only changes need just `git pull`. After changing `.env.production.local`,
+run `pnpm build && pm2 restart lenor`.
 
 ---
 
-## Option A: Vercel + Supabase
+## Option A: VPS (Ubuntu) — current
+
+This is how lenor.co.za was set up (as root). Steps 3 and 5 are written non-interactively; the original run answered the same prompts by hand.
+Leave `SUPABASE_URL` empty and the site stores everything in `.data/` next to
+the app. Run **one** process only (no PM2 cluster mode) and **back up `.data/`**.
+
+### 1. Server prep
+
+```bash
+fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+echo '/swapfile none swap sw 0 0' >> /etc/fstab
+apt update && apt upgrade -y          # reboot if a new kernel was installed
+```
+
+The build needs the swap on a 4 GB server.
+
+### 2. Server software and firewall
+
+```bash
+curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+apt install -y nodejs git nginx certbot python3-certbot-nginx
+npm i -g pnpm pm2
+ufw allow OpenSSH && ufw allow 'Nginx Full' && ufw enable
+```
+
+Install nginx before `ufw allow 'Nginx Full'`, or ufw can't find the profile.
+
+### 3. Access to the code
+
+The repo is private, so the server uses a read-only deploy key:
+
+```bash
+ssh-keygen -t ed25519 -f ~/.ssh/lenor_deploy -N "" -C lenor-vps
+cat ~/.ssh/lenor_deploy.pub     # GitHub repo → Settings → Deploy keys → Add (read-only)
+printf 'Host github.com\n  IdentityFile ~/.ssh/lenor_deploy\n  IdentitiesOnly yes\n' >> ~/.ssh/config
+git clone git@github.com:Appmaniazar-Projects/lenor-ecommerce.git ~/lenor
+```
+
+Answer the first GitHub host-key prompt with the full word `yes`.
+
+### 4. App
+
+```bash
+cd ~/lenor
+cp .env.example .env.production.local
+nano .env.production.local     # Amrod details, NEXT_PUBLIC_APP_URL=https://lenor.co.za, ADMIN_EMAILS
+pnpm install --frozen-lockfile
+pnpm build
+pm2 start pnpm --name lenor -- start
+pm2 save && pm2 startup        # starts the pm2-root service at boot
+```
+
+pnpm's "Ignored build scripts: sharp" warning is harmless.
+
+### 5. Nginx and SSL
+
+`/etc/nginx/sites-available/lenor`:
+
+```nginx
+server {
+  listen 80;
+  listen [::]:80;
+  server_name lenor.co.za www.lenor.co.za;
+  client_max_body_size 25m;   # logo uploads (app limit is 20 MB)
+
+  location / {
+    proxy_pass http://127.0.0.1:3000;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_read_timeout 120s;
+  }
+}
+```
+
+```bash
+ln -s /etc/nginx/sites-available/lenor /etc/nginx/sites-enabled/
+rm -f /etc/nginx/sites-enabled/default
+nginx -t && systemctl reload nginx
+certbot --nginx -d lenor.co.za -d www.lenor.co.za -m support@appmaniazar.co.za --agree-tos --redirect
+```
+
+Let's Encrypt is free and Certbot renews it automatically. Check with
+`certbot renew --dry-run`; full SSL steps are in the deployment record.
+
+### 6. DNS
+
+`@` and `www` must point to the VPS IP (they already did for lenor.co.za).
+Leave the MX records alone: email is hosted separately.
+
+### 7. Backups (still to set up)
+
+```bash
+mkdir -p ~/backups
+(crontab -l 2>/dev/null; echo '0 2 * * * tar czf ~/backups/lenor-data-$(date +\%F).tgz -C ~/lenor .data') | crontab -
+```
+
+Also switch on backups in the domains.co.za VPS panel, so a copy lives off the server.
+
+---
+
+## Option B: Vercel + Supabase (optional)
 
 ### 1. Supabase (5 minutes)
 
@@ -66,72 +185,6 @@ to wake it, or upgrade before real customers use the site.
 - Login and quote rate limits are per Vercel instance, so they're looser than on a VPS.
 
 ---
-
-## Option B: VPS (Ubuntu)
-
-Leave `SUPABASE_URL` empty and the site stores everything in `.data/` next to
-the app. Run **one** process only (no PM2 cluster mode) and **back up `.data/`**.
-(Or set the Supabase variables here too and keep using Supabase.)
-
-### 1. Server software
-
-```bash
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-sudo apt install -y nodejs git nginx certbot python3-certbot-nginx
-sudo npm i -g pnpm pm2
-```
-
-### 2. App
-
-```bash
-git clone https://github.com/Appmaniazar-Projects/lenor-ecommerce ~/lenor
-cd ~/lenor
-cp .env.example .env.production.local
-nano .env.production.local     # Amrod details, URL, SESSION_SECRET, ADMIN_EMAILS
-pnpm install --frozen-lockfile
-pnpm build
-pm2 start "pnpm start" --name lenor
-pm2 save && pm2 startup        # run the command it prints
-```
-
-Update: `git pull && pnpm install --frozen-lockfile && pnpm build && pm2 restart lenor`
-
-### 3. Nginx
-
-`/etc/nginx/sites-available/lenor`:
-
-```nginx
-server {
-  server_name lenor.co.za www.lenor.co.za;
-  client_max_body_size 25m;   # logo uploads (app limit is 20 MB)
-
-  location / {
-    proxy_pass http://127.0.0.1:3000;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-  }
-}
-```
-
-```bash
-sudo ln -s /etc/nginx/sites-available/lenor /etc/nginx/sites-enabled/
-sudo nginx -t && sudo systemctl reload nginx
-sudo certbot --nginx -d lenor.co.za -d www.lenor.co.za
-```
-
-### 4. DNS (domains.co.za)
-
-A records for `@` and `www` pointing to the VPS IP. Leave MX records alone.
-
-### 5. Backups
-
-```bash
-0 2 * * * tar czf ~/backups/lenor-data-$(date +\%F).tgz -C ~/lenor .data
-```
-
-Copy `~/backups` somewhere off the server.
 
 ---
 
