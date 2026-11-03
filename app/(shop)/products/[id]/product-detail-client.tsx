@@ -31,6 +31,8 @@ import {
 } from "@/components/ui/breadcrumb"
 
 import { StockIndicator } from "@/components/products/stock-indicator"
+import { StockCheckDialog, useProductStock } from "@/components/products/stock-check-dialog"
+import { formatStock, stockByColour, stockLabel, stockLevel } from "@/lib/stock"
 import { QuantitySelector } from "@/components/products/quantity-selector"
 import {
   BrandingSelector,
@@ -97,8 +99,24 @@ export function ProductDetailClient({ product }: Props) {
   const showPrice = isAuthenticated || !PRICES_REQUIRE_LOGIN
   const router = useRouter()
 
-  const variants = product.variants ?? []
   const images = product.images ?? []
+
+  // Live stock replaces the stock baked into the page when it arrives.
+  const { data: liveStock } = useProductStock(product.id)
+  const liveByCode = new Map(
+    (liveStock?.variants ?? []).map((v) => [v.fullCode, v])
+  )
+  const variants = (product.variants ?? []).map((variant) => {
+    const live = liveByCode.get(variant.fullCode)
+    const cachedIncoming = (variant as { incoming?: number }).incoming ?? 0
+    return {
+      ...variant,
+      stock: live?.stock ?? variant.stock,
+      incoming: live?.incoming ?? cachedIncoming,
+    }
+  })
+  const colourStock = stockByColour(variants)
+  const hasStockData = variants.length > 0
 
   const availableColors = [
     ...new Set(
@@ -156,12 +174,8 @@ export function ProductDetailClient({ product }: Props) {
     Number.isFinite(selectedVariant.price) &&
     selectedVariant.price > 0
 
-  const selectedStockLevel =
-    !selectedVariant || selectedStock <= 0
-      ? "out-of-stock"
-      : selectedStock <= 10
-        ? "low-stock"
-        : "in-stock"
+  const selectedStockLevel = selectedVariant ? stockLevel(selectedStock) : "out-of-stock"
+  const selectedIncoming = selectedVariant?.incoming ?? 0
 
   // Only show sizes that exist for the selected colour.
   const availableSizes = [
@@ -392,7 +406,7 @@ export function ProductDetailClient({ product }: Props) {
         {/* Product information */}
         <div className="flex flex-1 flex-col gap-6">
           <div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <StockIndicator level={selectedStockLevel} />
 
               <span className="text-xs text-muted-foreground">
@@ -455,21 +469,39 @@ export function ProductDetailClient({ product }: Props) {
             </label>
 
             <div className="flex flex-wrap gap-2">
-              {availableColors.map((color) => (
-                <button
-                  key={color}
-                  type="button"
-                  onClick={() => handleColorChange(color)}
-                  aria-pressed={selectedColor === color}
-                  className={`rounded-md border px-3 py-1.5 text-sm transition-colors ${
-                    selectedColor === color
-                      ? "border-accent bg-accent/10 font-medium text-foreground"
-                      : "border-border text-muted-foreground hover:border-accent/50"
-                  }`}
-                >
-                  {color}
-                </button>
-              ))}
+              {availableColors.map((color) => {
+                const stock = colourStock.get(color)?.stock ?? 0
+                const level = stockLevel(stock)
+                return (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => handleColorChange(color)}
+                    aria-pressed={selectedColor === color}
+                    aria-label={hasStockData ? `${color}, ${stockLabel(stock)}` : color}
+                    className={`flex min-w-24 flex-col items-start rounded-md border bg-card px-3 py-1.5 text-left text-sm transition-colors ${
+                      selectedColor === color
+                        ? "border-accent bg-accent/10 font-medium text-foreground ring-1 ring-accent"
+                        : "border-border text-foreground hover:border-accent/50"
+                    } ${hasStockData && stock <= 0 ? "opacity-60" : ""}`}
+                  >
+                    <span>{color}</span>
+                    {hasStockData && (
+                      <span
+                        className={`text-[11px] font-normal tabular-nums ${
+                          level === "out-of-stock"
+                            ? "text-red-700"
+                            : level === "low-stock"
+                              ? "text-amber-700"
+                              : "text-emerald-700"
+                        }`}
+                      >
+                        {stockLabel(stock)}
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
             </div>
           </div>
 
@@ -484,20 +516,65 @@ export function ProductDetailClient({ product }: Props) {
                 value={selectedSize}
                 onValueChange={handleSizeChange}
               >
-                <SelectTrigger className="w-40">
+                <SelectTrigger className="w-60">
                   <SelectValue placeholder="Select size" />
                 </SelectTrigger>
 
                 <SelectContent>
-                  {availableSizes.map((size) => (
-                    <SelectItem key={size} value={size}>
-                      {size}
-                    </SelectItem>
-                  ))}
+                  {availableSizes.map((size) => {
+                    const v = variants.find(
+                      (variant) => variant.color === selectedColor && variant.size === size
+                    )
+                    return (
+                      <SelectItem key={size} value={size}>
+                        <span className="flex w-full items-center justify-between gap-3">
+                          <span>{size}</span>
+                          {v && (
+                            <span className="text-xs text-muted-foreground tabular-nums">
+                              {stockLabel(v.stock)}
+                            </span>
+                          )}
+                        </span>
+                      </SelectItem>
+                    )
+                  })}
                 </SelectContent>
               </Select>
             </div>
           )}
+
+          {/* Stock for the chosen colour and size */}
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3">
+            <div className="text-sm">
+              {selectedVariant ? (
+                <>
+                  <p className="font-medium text-foreground">
+                    {selectedStock > 0
+                      ? `${formatStock(selectedStock)} in stock`
+                      : "Out of stock"}
+                    <span className="font-normal text-muted-foreground">
+                      {" "}
+                      · {selectedColor}
+                      {availableSizes.length > 1 ? `, ${selectedSize}` : ""}
+                    </span>
+                  </p>
+                  {selectedIncoming > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      {formatStock(selectedIncoming)} more on the way
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p className="text-muted-foreground">Choose a colour and size to see stock.</p>
+              )}
+            </div>
+            <StockCheckDialog
+              productId={product.id}
+              productName={product.name}
+              selectedColor={selectedColor}
+              selectedSize={selectedSize}
+            />
+          </div>
 
           {/* Quantity */}
           <div className="flex flex-col gap-2">
@@ -522,7 +599,7 @@ export function ProductDetailClient({ product }: Props) {
               selectedStock > 0 && (
                 <p className="text-sm text-destructive">
                   Only {selectedStock} units are in stock. You can still request
-                  a quote and Lenor will confirm lead time.
+                  a quote and Lénor will confirm lead time.
                 </p>
               )}
           </div>
@@ -571,7 +648,7 @@ export function ProductDetailClient({ product }: Props) {
 
           {branded && (
             <p className="-mt-3 text-xs text-muted-foreground">
-              Branded items go through a quote: Lenor checks your artwork and
+              Branded items go through a quote: Lénor checks your artwork and
               confirms branding costs and lead time.
             </p>
           )}

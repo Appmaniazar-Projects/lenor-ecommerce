@@ -1,3 +1,4 @@
+import type { ProductStock } from "@/lib/stock"
 import { gunzipSync, gzipSync } from "node:zlib"
 import { waitUntil } from "@vercel/functions"
 import { getStore } from "@/lib/store"
@@ -797,6 +798,46 @@ export async function getProductById(
   return state.byId.get(id)?.product ?? null
 }
 
+/**
+ * Fresh stock for one product. Waits for a refresh when the cached stock is
+ * older than STOCK_FRESH_MS, so "Check stock" shows what Amrod has now.
+ */
+const STOCK_FRESH_MS = 2 * 60_000
+
+export async function getProductStock(id: string): Promise<ProductStock | null> {
+  await getCatalogue()
+
+  if (Date.now() - state.builtAt > STOCK_FRESH_MS) {
+    try {
+      // Don't keep the customer waiting long: after 8 s, answer with the
+      // cached stock and let the refresh finish in the background.
+      const refresh = refreshCatalogue()
+      keepAlive(refresh.catch(() => {}))
+      await Promise.race([refresh, new Promise((resolve) => setTimeout(resolve, 8_000))])
+    } catch (error) {
+      // Amrod is down or in maintenance: answer with the last known stock.
+      console.warn("Lenor: stock refresh failed, using cached stock:", error)
+    }
+  }
+
+  const product = state.byId.get(id)?.product
+  if (!product) return null
+
+  return {
+    productId: product.id,
+    sku: product.sku,
+    name: product.name,
+    variants: product.variants.map((v) => ({
+      fullCode: v.fullCode,
+      color: v.color,
+      size: v.size,
+      stock: v.stock,
+      incoming: v.incoming,
+    })),
+    updatedAt: state.builtAt || Date.now(),
+  }
+}
+
 type FacetKey = "brand" | "gender" | "colour" | "size" | "material" | "fit" | "price"
 
 function lowerSet(values?: string[]): Set<string> | null {
@@ -902,14 +943,25 @@ function categoryFacet(
     .sort((a, b) => a.label.localeCompare(b.label))
 }
 
+/** Name, then code: a fixed order for products that tie on the main sort. */
+function byName(a: IndexedProduct, b: IndexedProduct): number {
+  return (
+    a.product.name.localeCompare(b.product.name, "en", { sensitivity: "base" }) ||
+    a.product.sku.localeCompare(b.product.sku)
+  )
+}
+
 function byPrice(direction: "asc" | "desc") {
   return (a: IndexedProduct, b: IndexedProduct) => {
     const ap = a.product.price
     const bp = b.product.price
-    if (ap === bp) return 0
     // Products without a price always go last.
-    if (ap <= 0) return 1
-    if (bp <= 0) return -1
+    if (ap <= 0 || bp <= 0) {
+      if (ap > 0) return -1
+      if (bp > 0) return 1
+      return byName(a, b)
+    }
+    if (ap === bp) return byName(a, b)
     return direction === "asc" ? ap - bp : bp - ap
   }
 }
@@ -928,12 +980,14 @@ export async function queryCatalogue(
       : q.sort === "price-desc"
         ? [...filtered].sort(byPrice("desc"))
         : q.sort === "name-asc"
-          ? [...filtered].sort((a, b) => a.product.name.localeCompare(b.product.name))
+          ? [...filtered].sort(byName)
           : q.sort === "newest"
-            ? [...filtered].sort((a, b) =>
-                (b.product.introduced ?? "").localeCompare(a.product.introduced ?? "")
+            ? [...filtered].sort(
+                (a, b) =>
+                  (b.product.introduced ?? "").localeCompare(a.product.introduced ?? "") ||
+                  byName(a, b)
               )
-            : filtered
+            : [...filtered].sort(byName)
 
   const requestedPage = Number(q.page ?? 1)
   const requestedPerPage = Number(q.perPage ?? 12)

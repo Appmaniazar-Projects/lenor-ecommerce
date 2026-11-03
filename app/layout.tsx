@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
+import { Fredoka, Geist, Geist_Mono } from 'next/font/google'
 import { Toaster } from '@/components/ui/sonner'
 import { CartProvider } from '@/contexts/cart-context'
 import { QuoteProvider } from '@/contexts/quote-context'
@@ -8,6 +8,8 @@ import './globals.css'
 
 const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
+// Rounded display face that echoes the Lénor logo (headings only).
+const display = Fredoka({ subsets: ["latin"], weight: ["500", "600", "700"], variable: "--font-fredoka" });
 
 export const metadata: Metadata = {
   title: {
@@ -38,7 +40,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className={display.variable}>
       <body className="font-sans antialiased">
         <AuthProvider>
           <CartProvider>

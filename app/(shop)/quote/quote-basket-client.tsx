@@ -31,6 +31,7 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { QuantitySelector } from "@/components/products/quantity-selector"
+import { QuoteLineStock } from "@/components/products/stock-check-dialog"
 import { useQuote } from "@/contexts/quote-context"
 import {
   BrandingSelector,
@@ -390,6 +391,15 @@ export function QuoteBasketClient() {
                         )}
                       </div>
 
+                      <QuoteLineStock
+                        productId={item.productId}
+                        productName={item.productName}
+                        sku={item.sku}
+                        color={item.color}
+                        size={item.size}
+                        quantity={item.quantity}
+                      />
+
                       {/* Branding notes */}
                       <div className="flex flex-col gap-1.5">
                         {item.branding ? (
@@ -425,7 +435,7 @@ export function QuoteBasketClient() {
                           </p>
                         )}
                         <Textarea
-                          placeholder="Notes for Lenor (logo colours, Pantone references, size)..."
+                          placeholder="Notes for Lénor (logo colours, Pantone references, size)..."
                           value={item.brandingNotes}
                           onChange={(e) =>
                             updateItem({

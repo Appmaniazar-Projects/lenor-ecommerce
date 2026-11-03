@@ -1,11 +1,17 @@
 import Link from "next/link"
-import { ChevronRight, FileText } from "lucide-react"
+import { ChevronRight } from "lucide-react"
 import { SiteHeader } from "@/components/layout/site-header"
 import { SiteFooter } from "@/components/layout/site-footer"
 import { ProductTile } from "@/components/products/product-tile"
-import { Button } from "@/components/ui/button"
+import {
+  CategoryTiles,
+  FeatureStrip,
+  HowItWorksBand,
+  LandingHero,
+  QuoteCallToAction,
+} from "@/components/home/landing"
 import { queryCatalogue, type CatalogueProduct } from "@/lib/catalogue"
-import { CATEGORIES, formatNumber } from "@/lib/constants"
+import { CATEGORIES } from "@/lib/constants"
 import { forViewer } from "@/lib/pricing-visibility"
 
 
@@ -49,9 +55,9 @@ function ProductRow({
   if (products.length === 0) return null
 
   return (
-    <section className="rounded-lg bg-white p-4 shadow-sm">
+    <section className="rounded-2xl bg-white p-4 shadow-sm sm:p-5">
       <div className="mb-3 flex items-baseline justify-between">
-        <h2 className="text-lg font-bold text-foreground">{title}</h2>
+        <h2 className="font-display text-xl font-semibold text-foreground">{title}</h2>
         <Link
           href={href}
           className="flex items-center text-sm font-medium text-accent hover:underline"
@@ -90,79 +96,37 @@ export default async function HomePage() {
     <div className="min-h-screen bg-background">
       <SiteHeader />
 
-      <main className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 lg:px-8">
-        {/* Shop by category */}
-        <section className="rounded-lg bg-white p-4 shadow-sm">
-          <div className="mb-3 flex items-baseline justify-between">
-            <h1 className="text-lg font-bold text-foreground">Shop by category</h1>
-            <Link href="/products" className="text-sm font-medium text-accent hover:underline">
-              Browse all {formatNumber(total)} products
-            </Link>
-          </div>
+      <main className="flex flex-col gap-12 pb-16 lg:gap-16">
+        <LandingHero
+          total={total}
+          products={[...promotion, ...newest].filter(
+            (p, i, all) => all.findIndex((q) => q.id === p.id) === i
+          )}
+        />
 
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-            {CATEGORIES.map((cat, i) => {
-              const sample = tileImages[i]?.[0]
-              return (
-                <Link
-                  key={cat.id}
-                  href={`/products?category=${cat.slug}`}
-                  className="group flex items-center gap-3 rounded-lg border border-border p-2 transition-colors hover:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                >
-                  <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white">
-                    {sample ? (
-                      <img
-                        src={sample.images[0]}
-                        alt=""
-                        loading="lazy"
-                        className="h-full w-full object-contain"
-                      />
-                    ) : (
-                      <span className="text-lg font-bold text-muted-foreground/40">
-                        {cat.name.charAt(0)}
-                      </span>
-                    )}
-                  </span>
-                  <span
-                    className={`text-sm font-medium leading-tight group-hover:text-accent ${
-                      cat.slug === "all-clearance-items" ? "text-accent" : "text-foreground"
-                    }`}
-                  >
-                    {cat.name}
-                  </span>
-                </Link>
-              )
-            })}
-          </div>
-        </section>
+        <FeatureStrip />
 
-        <ProductRow title="On Promotion" href="/products?promotion=true" products={promotion} />
-        <ProductRow title="New Arrivals" href="/products?sort=newest" products={newest} />
+        <CategoryTiles images={tileImages.map((row) => row?.[0])} />
 
-        {FEATURED_CATEGORIES.map((slug, i) => (
-          <ProductRow
-            key={slug}
-            title={CATEGORIES.find((c) => c.slug === slug)?.name ?? slug}
-            href={`/products?category=${slug}`}
-            products={categoryRows[i] ?? []}
-          />
-        ))}
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 lg:px-8">
+          <ProductRow title="On Promotion" href="/products?promotion=true" products={promotion} />
+          <ProductRow title="New Arrivals" href="/products?sort=newest" products={newest} />
+        </div>
 
-        {/* Branded orders go through the quote basket */}
-        <section className="flex flex-col items-start justify-between gap-3 rounded-lg bg-white p-4 shadow-sm sm:flex-row sm:items-center">
-          <div>
-            <h2 className="text-base font-bold text-foreground">Need it branded?</h2>
-            <p className="text-sm text-muted-foreground">
-              Add items to your quote basket and we will come back to you with pricing for your branding.
-            </p>
-          </div>
-          <Button asChild className="bg-accent text-accent-foreground hover:bg-accent/90">
-            <Link href="/quote">
-              <FileText className="mr-2 h-4 w-4" />
-              Open quote basket
-            </Link>
-          </Button>
-        </section>
+        <HowItWorksBand />
+
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 lg:px-8">
+          {FEATURED_CATEGORIES.map((slug, i) => (
+            <ProductRow
+              key={slug}
+              title={CATEGORIES.find((c) => c.slug === slug)?.name ?? slug}
+              href={`/products?category=${slug}`}
+              products={categoryRows[i] ?? []}
+            />
+          ))}
+        </div>
+
+        <QuoteCallToAction />
       </main>
 
       <SiteFooter />
