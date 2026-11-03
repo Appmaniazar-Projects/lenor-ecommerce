@@ -93,7 +93,7 @@ All settings are environment variables. `.env.example` lists them with comments.
 | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | On Vercel | Supabase project URL and service\_role key. Server only; never put the key in a `NEXT_PUBLIC_` variable |
 | `SESSION_SECRET` | On Vercel | 32+ random characters that sign login cookies. Changing it signs everyone out |
 | `CRON_SECRET` | On Vercel | Lets Vercel's daily cron call `/api/cron/catalogue` |
-| `ADMIN_EMAILS` | Recommended | Comma-separated staff emails who see every order and quote |
+| `ADMIN_EMAILS` | Recommended | Staff who see every order and quote: `larry@lenor.co.za,ronel@lenor.co.za`. They register on the site with these addresses |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM` | For email | `cp66.domains.co.za`, `465` (SSL), sending mailbox `info@lenor.co.za`. Empty `SMTP_HOST` turns email off |
 | `INFO_EMAIL`, `SALES_EMAIL`, `ACCOUNTS_EMAIL` | Optional | Where messages go. Defaults: contact form to info@, quotes to sales@, orders to sales@ with a copy to accounts@ |
 | `NOTIFY_EMAILS` | Optional | Extra staff copied on every alert |

@@ -158,7 +158,7 @@ to wake it, or upgrade before real customers use the site.
    | `SESSION_SECRET` | 48+ random characters, e.g. `openssl rand -base64 48` |
    | `CRON_SECRET` | another long random string |
    | `NEXT_PUBLIC_APP_URL` | the site address, e.g. `https://lenor-ecommerce.vercel.app` |
-   | `ADMIN_EMAILS` | Lenor staff emails, comma separated |
+   | `ADMIN_EMAILS` | `larry@lenor.co.za,ronel@lenor.co.za` |
    | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` | `cp66.domains.co.za`, `465`, `info@lenor.co.za`, that mailbox's password (see `.env.example` for routing) |
 
 3. **Settings → Build and Deployment**: Install Command `pnpm install`
