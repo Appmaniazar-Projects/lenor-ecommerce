@@ -1,22 +1,18 @@
 import Link from "next/link"
-import { SITE_NAME, CATEGORIES } from "@/lib/constants"
+import { SITE_NAME, CATEGORIES, CONTACT_EMAILS } from "@/lib/constants"
+import { LenorLogo } from "@/components/shared/lenor-logo"
 
 export function SiteFooter() {
   return (
-    <footer className="border-t border-border bg-muted/40">
+    <footer className="bg-primary text-primary-foreground">
       <div className="mx-auto max-w-7xl px-4 py-12 lg:px-8">
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
           {/* Brand */}
           <div className="flex flex-col gap-3">
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary">
-                <span className="text-sm font-bold text-primary-foreground">L</span>
-              </div>
-              <span className="text-lg font-bold tracking-tight text-foreground">
-                {SITE_NAME}
-              </span>
-            </div>
-            <p className="text-sm leading-relaxed text-muted-foreground">
+            <Link href="/" aria-label={`${SITE_NAME} home`} className="w-fit">
+              <LenorLogo variant="light" className="h-12" />
+            </Link>
+            <p className="text-sm leading-relaxed text-primary-foreground/75">
               South Africa{"'"}s trusted B2B supplier of branded promotional
               products. Quality merchandise, competitive pricing, reliable
               delivery.
@@ -25,7 +21,7 @@ export function SiteFooter() {
 
           {/* Categories */}
           <div>
-            <h3 className="mb-3 text-sm font-semibold text-foreground">
+            <h3 className="mb-3 text-sm font-semibold text-primary-foreground">
               Categories
             </h3>
             <ul className="flex flex-col gap-2">
@@ -33,7 +29,7 @@ export function SiteFooter() {
                 <li key={cat.id}>
                   <Link
                     href={`/products?category=${cat.slug}`}
-                    className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                    className="text-sm text-primary-foreground/75 transition-colors hover:text-accent"
                   >
                     {cat.name}
                   </Link>
@@ -44,14 +40,14 @@ export function SiteFooter() {
 
           {/* Company */}
           <div>
-            <h3 className="mb-3 text-sm font-semibold text-foreground">
+            <h3 className="mb-3 text-sm font-semibold text-primary-foreground">
               Company
             </h3>
             <ul className="flex flex-col gap-2">
               <li>
                 <Link
                   href="/products"
-                  className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                  className="text-sm text-primary-foreground/75 transition-colors hover:text-accent"
                 >
                   Browse Products
                 </Link>
@@ -59,7 +55,7 @@ export function SiteFooter() {
               <li>
                 <Link
                   href="/quote"
-                  className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                  className="text-sm text-primary-foreground/75 transition-colors hover:text-accent"
                 >
                   Request a Quote
                 </Link>
@@ -67,7 +63,7 @@ export function SiteFooter() {
               <li>
                 <Link
                   href="/contact"
-                  className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                  className="text-sm text-primary-foreground/75 transition-colors hover:text-accent"
                 >
                   Contact Us
                 </Link>
@@ -77,11 +73,28 @@ export function SiteFooter() {
 
           {/* Contact */}
           <div>
-            <h3 className="mb-3 text-sm font-semibold text-foreground">
+            <h3 className="mb-3 text-sm font-semibold text-primary-foreground">
               Get In Touch
             </h3>
-            <ul className="flex flex-col gap-2 text-sm text-muted-foreground">
-              <li>info@lenor.co.za</li>
+            <ul className="flex flex-col gap-2 text-sm text-primary-foreground/75">
+              <li>
+                General:{" "}
+                <a href={`mailto:${CONTACT_EMAILS.info}`} className="hover:text-accent">
+                  {CONTACT_EMAILS.info}
+                </a>
+              </li>
+              <li>
+                Sales and quotes:{" "}
+                <a href={`mailto:${CONTACT_EMAILS.sales}`} className="hover:text-accent">
+                  {CONTACT_EMAILS.sales}
+                </a>
+              </li>
+              <li>
+                Accounts:{" "}
+                <a href={`mailto:${CONTACT_EMAILS.accounts}`} className="hover:text-accent">
+                  {CONTACT_EMAILS.accounts}
+                </a>
+              </li>
               <li>+27 11 234 5678</li>
               <li>
                 100 Main Rd, Sandton
@@ -92,9 +105,9 @@ export function SiteFooter() {
           </div>
         </div>
 
-        <div className="mt-10 border-t border-border pt-6">
-          <p className="text-center text-xs text-muted-foreground">
-            {new Date().getFullYear()} {SITE_NAME}. All rights reserved.
+        <div className="mt-10 border-t border-white/15 pt-6">
+          <p className="text-center text-xs text-primary-foreground/60">
+            © {new Date().getFullYear()} {SITE_NAME} Branding. All rights reserved.
           </p>
         </div>
       </div>

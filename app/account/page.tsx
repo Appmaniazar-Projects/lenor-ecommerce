@@ -43,14 +43,14 @@ export default function AccountPage() {
 
   if (!isAuthenticated || !user) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-background">
         <SiteHeader />
         
         <main className="py-20">
           <div className="container mx-auto px-4">
             <div className="max-w-md mx-auto text-center">
               <div className="flex justify-center mb-6">
-                <div className="h-20 w-20 bg-gray-100 rounded-full flex items-center justify-center">
+                <div className="h-20 w-20 bg-muted rounded-full flex items-center justify-center">
                   <User className="h-8 w-8 text-gray-400" />
                 </div>
               </div>
@@ -75,7 +75,7 @@ export default function AccountPage() {
 
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <SiteHeader />
       
       <main className="py-20">
@@ -101,7 +101,7 @@ export default function AccountPage() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="flex items-center gap-3">
-                      <div className="h-12 w-12 bg-gray-100 rounded-full flex items-center justify-center">
+                      <div className="h-12 w-12 bg-muted rounded-full flex items-center justify-center">
                         <span className="text-lg font-bold text-gray-600">
                           {user.name.charAt(0).toUpperCase()}
                         </span>

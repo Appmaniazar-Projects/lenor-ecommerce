@@ -6,11 +6,52 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Mail, Phone, MapPin, Clock, Send } from "lucide-react"
+import { useState } from "react"
+import { toast } from "sonner"
+import { Mail, Phone, MapPin, Clock, Send, Loader2 } from "lucide-react"
+import { CONTACT_EMAILS } from "@/lib/constants"
 
 export default function ContactPage() {
+  const [sending, setSending] = useState(false)
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    const form = e.currentTarget
+    const data = new FormData(form)
+    const first = String(data.get("firstName") ?? "").trim()
+    const last = String(data.get("lastName") ?? "").trim()
+
+    setSending(true)
+    try {
+      const res = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: `${first} ${last}`.trim(),
+          email: data.get("email"),
+          phone: data.get("phone"),
+          company: data.get("company"),
+          subject: data.get("subject"),
+          message: data.get("message"),
+          website: data.get("website"),
+        }),
+      })
+      const result = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error(result.error ?? "Your message could not be sent. Please try again.")
+        return
+      }
+      toast.success("Thank you! Your message has been sent. We'll get back to you soon.")
+      form.reset()
+    } catch {
+      toast.error(`Your message could not be sent. Please email ${CONTACT_EMAILS.info}.`)
+    } finally {
+      setSending(false)
+    }
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <SiteHeader />
       
       <main className="py-20">
@@ -27,7 +68,7 @@ export default function ContactPage() {
           <div className="grid lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
             {/* Contact Information */}
             <div className="lg:col-span-1 space-y-6">
-              <Card className="shadow-sm border-gray-100">
+              <Card className="shadow-sm border-border">
                 <CardHeader>
                   <CardTitle className="text-lg font-semibold text-gray-900">
                     Get In Touch
@@ -35,16 +76,26 @@ export default function ContactPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex items-start gap-3">
-                    <Mail className="h-5 w-5 text-gray-400 mt-0.5" />
+                    <Mail className="h-5 w-5 text-accent mt-0.5" />
                     <div>
                       <p className="font-medium text-gray-900">Email</p>
-                      <p className="text-gray-600">info@lenor.co.za</p>
-                      <p className="text-gray-600">quotes@lenor.co.za</p>
+                      <p className="text-gray-600">
+                        General:{" "}
+                        <a href={`mailto:${CONTACT_EMAILS.info}`} className="hover:text-accent">{CONTACT_EMAILS.info}</a>
+                      </p>
+                      <p className="text-gray-600">
+                        Sales and quotes:{" "}
+                        <a href={`mailto:${CONTACT_EMAILS.sales}`} className="hover:text-accent">{CONTACT_EMAILS.sales}</a>
+                      </p>
+                      <p className="text-gray-600">
+                        Accounts and invoices:{" "}
+                        <a href={`mailto:${CONTACT_EMAILS.accounts}`} className="hover:text-accent">{CONTACT_EMAILS.accounts}</a>
+                      </p>
                     </div>
                   </div>
                   
                   <div className="flex items-start gap-3">
-                    <Phone className="h-5 w-5 text-gray-400 mt-0.5" />
+                    <Phone className="h-5 w-5 text-accent mt-0.5" />
                     <div>
                       <p className="font-medium text-gray-900">Phone</p>
                       <p className="text-gray-600">+27 11 234 5678</p>
@@ -53,7 +104,7 @@ export default function ContactPage() {
                   </div>
                   
                   <div className="flex items-start gap-3">
-                    <MapPin className="h-5 w-5 text-gray-400 mt-0.5" />
+                    <MapPin className="h-5 w-5 text-accent mt-0.5" />
                     <div>
                       <p className="font-medium text-gray-900">Office</p>
                       <p className="text-gray-600">
@@ -67,7 +118,7 @@ export default function ContactPage() {
                   </div>
                   
                   <div className="flex items-start gap-3">
-                    <Clock className="h-5 w-5 text-gray-400 mt-0.5" />
+                    <Clock className="h-5 w-5 text-accent mt-0.5" />
                     <div>
                       <p className="font-medium text-gray-900">Business Hours</p>
                       <p className="text-gray-600">Monday - Friday: 8:00 AM - 5:00 PM</p>
@@ -79,7 +130,7 @@ export default function ContactPage() {
               </Card>
 
               {/* Quick Actions */}
-              <Card className="shadow-sm border-gray-100">
+              <Card className="shadow-sm border-border">
                 <CardHeader>
                   <CardTitle className="text-lg font-semibold text-gray-900">
                     Quick Actions
@@ -103,7 +154,7 @@ export default function ContactPage() {
                   <Button 
                     className="w-full justify-start" 
                     variant="outline"
-                    onClick={() => window.open('mailto:info@lenor.co.za')}
+                    onClick={() => window.open(`mailto:${CONTACT_EMAILS.info}`)}
                   >
                     Send Email
                   </Button>
@@ -113,18 +164,23 @@ export default function ContactPage() {
 
             {/* Contact Form */}
             <div className="lg:col-span-2">
-              <Card className="shadow-sm border-gray-100">
+              <Card className="shadow-sm border-border">
                 <CardHeader>
                   <CardTitle className="text-lg font-semibold text-gray-900">
                     Send us a Message
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <form className="space-y-6" onSubmit={(e) => {
-                    e.preventDefault()
-                    // Handle form submission
-                    alert('Thank you for your message! We will get back to you soon.')
-                  }}>
+                  <form className="space-y-6" onSubmit={handleSubmit}>
+                    {/* Left empty by people; bots fill it in */}
+                    <input
+                      type="text"
+                      name="website"
+                      tabIndex={-1}
+                      autoComplete="off"
+                      aria-hidden="true"
+                      className="hidden"
+                    />
                     <div className="grid sm:grid-cols-2 gap-4">
                       <div>
                         <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-2">
@@ -217,11 +273,16 @@ export default function ContactPage() {
 
                     <Button 
                       type="submit" 
-                      className="w-full bg-gray-900 hover:bg-gray-800 text-white"
+                      className="w-full"
                       size="lg"
+                      disabled={sending}
                     >
-                      <Send className="h-4 w-4 mr-2" />
-                      Send Message
+                      {sending ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Send className="h-4 w-4 mr-2" />
+                      )}
+                      {sending ? "Sending..." : "Send Message"}
                     </Button>
                   </form>
                 </CardContent>
@@ -233,28 +294,28 @@ export default function ContactPage() {
           <div className="mt-20 max-w-4xl mx-auto">
             <h2 className="text-3xl font-bold text-gray-900 text-center mb-12">Frequently Asked Questions</h2>
             <div className="grid md:grid-cols-2 gap-6">
-              <Card className="shadow-sm border-gray-100">
+              <Card className="shadow-sm border-border">
                 <CardContent className="p-6">
                   <h3 className="font-semibold text-gray-900 mb-2">What is your minimum order quantity?</h3>
                   <p className="text-gray-600">Minimum order quantities vary by product, typically ranging from 10-100 units. Check individual product pages for specific MOQ requirements.</p>
                 </CardContent>
               </Card>
               
-              <Card className="shadow-sm border-gray-100">
+              <Card className="shadow-sm border-border">
                 <CardContent className="p-6">
                   <h3 className="font-semibold text-gray-900 mb-2">How long does production take?</h3>
                   <p className="text-gray-600">Standard production time is 7-14 working days after artwork approval. Express options are available for urgent orders.</p>
                 </CardContent>
               </Card>
               
-              <Card className="shadow-sm border-gray-100">
+              <Card className="shadow-sm border-border">
                 <CardContent className="p-6">
                   <h3 className="font-semibold text-gray-900 mb-2">Do you offer design services?</h3>
                   <p className="text-gray-600">Yes, we provide free basic design assistance. Our team can help optimize your logo for the best branding results.</p>
                 </CardContent>
               </Card>
               
-              <Card className="shadow-sm border-gray-100">
+              <Card className="shadow-sm border-border">
                 <CardContent className="p-6">
                   <h3 className="font-semibold text-gray-900 mb-2">What payment methods do you accept?</h3>
                   <p className="text-gray-600">We accept EFT, credit cards, and debit orders. Payment terms are available for approved corporate accounts.</p>

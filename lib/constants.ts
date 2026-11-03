@@ -1,4 +1,4 @@
-export const SITE_NAME = "Lenor"
+export const SITE_NAME = "Lénor"
 export const SITE_TAGLINE = "Your Branded Merchandise Partner"
 export const SITE_DOMAIN = "lenor.co.za"
 export const SITE_DESCRIPTION =
@@ -72,3 +72,18 @@ export const QUOTE_STATUSES = [
 
 export type OrderStatus = (typeof ORDER_STATUSES)[number]
 export type QuoteStatus = (typeof QUOTE_STATUSES)[number]
+
+/** Lénor mailboxes (hosted on cp66.domains.co.za). */
+export const CONTACT_EMAILS = {
+  info: "info@lenor.co.za",
+  sales: "sales@lenor.co.za",
+  accounts: "accounts@lenor.co.za",
+} as const
+
+/** Brand colours, taken from the Lénor logo. */
+export const BRAND_COLORS = {
+  yellow: "#FEFECA",
+  black: "#01081A",
+  pink: "#DC1D80",
+  navy: "#1F3C66",
+} as const

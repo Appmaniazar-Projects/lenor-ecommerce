@@ -11,11 +11,11 @@ const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: {
-    default: 'Lenor | Your Branded Merchandise Partner',
-    template: '%s | Lenor',
+    default: 'Lénor Branding | Your Branded Merchandise Partner',
+    template: '%s | Lénor',
   },
   description:
-    'Lenor is South Africa\'s trusted B2B supplier of branded promotional products. Request a quote for apparel, bags, drinkware, tech accessories and more.',
+    'Lénor is South Africa\'s trusted B2B supplier of branded promotional products. Request a quote for apparel, bags, drinkware, tech accessories and more.',
   keywords: [
     'promotional products',
     'branded merchandise',
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: '#1a1d2b',
+  themeColor: '#FEFECA',
   width: 'device-width',
   initialScale: 1,
 }

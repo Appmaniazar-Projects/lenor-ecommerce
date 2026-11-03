@@ -80,11 +80,11 @@ export function CheckoutClient() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-background">
         <div className="container mx-auto px-4 py-20">
           <div className="max-w-md mx-auto text-center">
             <div className="flex justify-center mb-6">
-              <div className="h-20 w-20 bg-gray-100 rounded-full flex items-center justify-center">
+              <div className="h-20 w-20 bg-muted rounded-full flex items-center justify-center">
                 <ShoppingBag className="h-8 w-8 text-gray-400" />
               </div>
             </div>
@@ -94,7 +94,7 @@ export function CheckoutClient() {
             </p>
             <div className="space-y-3">
               <Link href="/login?next=/checkout">
-                <Button size="lg" className="w-full bg-gray-900 hover:bg-gray-800">
+                <Button size="lg" className="w-full">
                   Sign In to Continue
                 </Button>
               </Link>

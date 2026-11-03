@@ -66,13 +66,13 @@ export function FilterSidebar({ categories, onFiltersChange }: FilterSidebarProp
 
   return (
     <div className="w-full lg:w-72 flex-shrink-0">
-      <Card className="sticky top-4 border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+      <Card className="sticky top-4 border-0 shadow-lg bg-card">
         <CardHeader className="pb-3 sm:pb-4">
           <div className="flex items-center justify-between">
             <CardTitle className="text-base sm:text-lg font-bold text-gray-900">Filters</CardTitle>
             <div className="flex items-center gap-2">
               {activeFilterCount > 0 && (
-                <Badge variant="default" className="bg-gray-900 text-white text-xs px-2 py-1">
+                <Badge variant="default" className="bg-primary text-primary-foreground text-xs px-2 py-1">
                   {activeFilterCount}
                 </Badge>
               )}
@@ -80,7 +80,7 @@ export function FilterSidebar({ categories, onFiltersChange }: FilterSidebarProp
                 variant="ghost"
                 size="sm"
                 onClick={() => setIsExpanded(!isExpanded)}
-                className="h-7 w-7 sm:h-8 sm:w-8 p-0 hover:bg-gray-100"
+                className="h-7 w-7 sm:h-8 sm:w-8 p-0 hover:bg-muted"
               >
                 {isExpanded ? (
                   <ChevronUp className="h-3 w-3 sm:h-4 sm:w-4" />

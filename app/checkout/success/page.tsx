@@ -14,7 +14,7 @@ function CheckoutSuccessContent() {
   const orderNumber = searchParams.get("order")
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <SiteHeader />
       
       <main className="py-20">
@@ -51,7 +51,7 @@ function CheckoutSuccessContent() {
                     invoice with payment details.
                   </p>
                   
-                  <div className="bg-gray-50 rounded-lg p-6 text-left">
+                  <div className="bg-muted rounded-lg p-6 text-left">
                     <h3 className="font-semibold text-gray-900 mb-4">What happens next?</h3>
                     <div className="space-y-3">
                       <div className="flex items-start gap-3">
@@ -111,7 +111,7 @@ function CheckoutSuccessContent() {
                 </Button>
               </Link>
               <Link href="/products" className="block">
-                <Button className="w-full bg-gray-900 hover:bg-gray-800">
+                <Button className="w-full">
                   <ShoppingBag className="mr-2 h-4 w-4" />
                   Continue Shopping
                 </Button>
@@ -132,7 +132,7 @@ function CheckoutSuccessContent() {
                         Contact Support
                       </Button>
                     </Link>
-                    <Button variant="outline" size="sm" onClick={() => window.open('mailto:info@lenor.co.za')}>
+                    <Button variant="outline" size="sm" onClick={() => window.open('mailto:sales@lenor.co.za')}>
                       Email Us
                     </Button>
                     <Button variant="outline" size="sm" onClick={() => window.open('tel:+27112345678')}>
@@ -154,7 +154,7 @@ function CheckoutSuccessContent() {
 export default function CheckoutSuccessPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="h-8 w-8 border-4 border-gray-300 border-t-gray-900 rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600">Loading...</p>

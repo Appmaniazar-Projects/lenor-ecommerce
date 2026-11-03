@@ -9,7 +9,7 @@ import {
   ArrowLeft,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { SITE_NAME } from "@/lib/constants"
+import { LenorLogo } from "@/components/shared/lenor-logo"
 
 const ADMIN_NAV = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
@@ -24,12 +24,8 @@ export function AdminSidebar() {
     <aside className="hidden w-60 shrink-0 border-r border-border bg-sidebar lg:flex lg:flex-col">
       {/* Brand */}
       <div className="flex h-16 items-center gap-2 border-b border-sidebar-border px-4">
-        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-sidebar-primary">
-          <span className="text-xs font-bold text-sidebar-primary-foreground">L</span>
-        </div>
-        <span className="text-sm font-bold text-sidebar-foreground">
-          {SITE_NAME} Admin
-        </span>
+        <LenorLogo variant="light" className="h-9" />
+        <span className="text-sm font-bold text-sidebar-foreground">Admin</span>
       </div>
 
       {/* Nav */}

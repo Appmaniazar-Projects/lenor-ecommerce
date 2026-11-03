@@ -1,19 +1,27 @@
 import "server-only"
 
 import nodemailer, { type Transporter } from "nodemailer"
-import { formatPrice, SITE_NAME } from "@/lib/constants"
+import { BRAND_COLORS, CONTACT_EMAILS, formatPrice, SITE_NAME } from "@/lib/constants"
 import { summariseBranding } from "@/lib/branding"
 import type { StoredOrder, StoredQuote } from "@/lib/records"
 import { findUpload, readUploadFile } from "@/lib/uploads"
 
 /**
- * Email alerts for new quotes and orders.
+ * Email for quotes, orders and the contact form.
+ *
+ * Lénor's mail is hosted on cp66.domains.co.za (SMTP 465, SSL).
+ *
+ * Who gets what:
+ *   Quote requests  -> sales@lenor.co.za (logo attached)
+ *   Orders          -> sales@lenor.co.za, copy to accounts@lenor.co.za
+ *   Contact form    -> info@lenor.co.za
+ *   Customers get a confirmation for quotes and orders; replies go to sales@.
  *
  * Settings (.env):
  *   SMTP_HOST, SMTP_PORT (465 = SSL, 587 = STARTTLS), SMTP_USER, SMTP_PASSWORD
- *   MAIL_FROM       sender, e.g. "Lenor <noreply@lenor.co.za>"
- *   NOTIFY_EMAILS   Lenor staff who get alerts (comma separated);
- *                   falls back to ADMIN_EMAILS
+ *   MAIL_FROM       sender, defaults to "Lénor Branding <SMTP_USER>"
+ *   INFO_EMAIL, SALES_EMAIL, ACCOUNTS_EMAIL   override the mailboxes above
+ *   NOTIFY_EMAILS   extra staff copied on every alert (comma separated)
  *
  * Email never blocks a quote or order: if sending fails, the record is
  * still saved and the error is logged.
@@ -40,13 +48,39 @@ function getTransporter(): Transporter | null {
 }
 
 function sender(): string {
-  return process.env.MAIL_FROM?.trim() || `${SITE_NAME} <noreply@lenor.co.za>`
+  const configured = process.env.MAIL_FROM?.trim()
+  if (configured) return configured
+  // The mail server only accepts the signed-in mailbox as the sender.
+  const address = process.env.SMTP_USER?.trim() || CONTACT_EMAILS.info
+  return `${SITE_NAME} Branding <${address}>`
 }
 
-function staffEmails(): string[] {
-  const list = process.env.NOTIFY_EMAILS?.trim() || process.env.ADMIN_EMAILS || ""
-  return list.split(",").map((e) => e.trim()).filter(Boolean)
+const mailbox = (name: "info" | "sales" | "accounts") =>
+  process.env[`${name.toUpperCase()}_EMAIL`]?.trim() || CONTACT_EMAILS[name]
+
+function extraStaff(): string[] {
+  return (process.env.NOTIFY_EMAILS ?? "")
+    .split(",")
+    .map((e) => e.trim())
+    .filter(Boolean)
 }
+
+/** Unique list of recipients, so nobody gets the same alert twice. */
+function recipients(...lists: (string | string[])[]): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const email of lists.flat()) {
+    const key = email.toLowerCase()
+    if (email && !seen.has(key)) {
+      seen.add(key)
+      out.push(email)
+    }
+  }
+  return out
+}
+
+const customerFootnote = () =>
+  `<p style="color:#4a4e5a;font-size:12px">Questions? Reply to this email or contact <a href="mailto:${mailbox("sales")}" style="color:${BRAND_COLORS.pink}">${mailbox("sales")}</a>.</p>`
 
 function siteUrl(path: string): string {
   const base = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "")
@@ -62,13 +96,19 @@ const escape = (value: unknown) =>
 const oneLine = (value: string) => value.replace(/[\r\n]+/g, " ").slice(0, 200)
 
 function layout(title: string, body: string): string {
-  return `<!doctype html><html><body style="margin:0;background:#f4f4f5;font-family:Arial,sans-serif;color:#18181b">
+  const logo = siteUrl("/lenor-logo-email.png")
+  const brand = logo.startsWith("http")
+    ? `<img src="${escape(logo)}" alt="${escape(SITE_NAME)} Branding" width="160" style="display:block;width:160px;height:auto;border:0">`
+    : `<span style="font-size:24px;font-weight:bold;color:${BRAND_COLORS.black}">${escape(SITE_NAME.toLowerCase())}</span>`
+  return `<!doctype html><html><body style="margin:0;background:${BRAND_COLORS.yellow};font-family:Arial,sans-serif;color:${BRAND_COLORS.black}">
 <div style="max-width:640px;margin:0 auto;padding:24px">
-<div style="background:#111827;color:#fff;padding:16px 20px;border-radius:8px 8px 0 0;font-size:18px;font-weight:bold">${escape(SITE_NAME)}</div>
-<div style="background:#fff;padding:20px;border-radius:0 0 8px 8px">
+<div style="background:${BRAND_COLORS.yellow};padding:8px 0 16px">${brand}</div>
+<div style="background:#fff;padding:20px;border-radius:8px;border-top:4px solid ${BRAND_COLORS.pink}">
 <h1 style="font-size:18px;margin:0 0 16px">${escape(title)}</h1>
 ${body}
-</div></div></body></html>`
+</div>
+<p style="color:#4a4e5a;font-size:11px;text-align:center;margin:16px 0 0">${escape(SITE_NAME)} Branding &middot; <a href="mailto:${mailbox("info")}" style="color:#4a4e5a">${mailbox("info")}</a></p>
+</div></body></html>`
 }
 
 function table(headers: string[], rows: string[][]): string {
@@ -96,14 +136,14 @@ function details(pairs: [string, string | undefined | null][]): string {
 async function send(message: nodemailer.SendMailOptions, label: string) {
   const transport = getTransporter()
   if (!transport) {
-    console.log(`Lenor: email not configured (SMTP_HOST empty), skipped: ${label}`)
+    console.log(`Lénor: email not configured (SMTP_HOST empty), skipped: ${label}`)
     return
   }
   try {
     await transport.sendMail({ from: sender(), ...message })
-    console.log(`Lenor: email sent: ${label}`)
+    console.log(`Lénor: email sent: ${label}`)
   } catch (error) {
-    console.error(`Lenor: email failed: ${label}:`, error)
+    console.error(`Lénor: email failed: ${label}:`, error)
   }
 }
 
@@ -125,7 +165,7 @@ function quoteItemRows(quote: StoredQuote): string[][] {
 }
 
 export async function notifyNewQuote(quote: StoredQuote): Promise<void> {
-  const staff = staffEmails()
+  const staff = recipients(mailbox("sales"), extraStaff())
   const rows = quoteItemRows(quote)
   const headers = ["Product", "Colour / Size", "Qty", "Branding"]
 
@@ -173,21 +213,20 @@ export async function notifyNewQuote(quote: StoredQuote): Promise<void> {
         `staff alert for ${quote.quoteNumber}`,
       ),
     )
-  } else {
-    console.warn("Lenor: no NOTIFY_EMAILS or ADMIN_EMAILS set, staff not alerted")
   }
 
   tasks.push(
     send(
       {
         to: quote.contactEmail,
+        replyTo: mailbox("sales"),
         subject: oneLine(`We received your quote request ${quote.quoteNumber}`),
         html: layout(
           "Thank you for your quote request",
           `<p>Hi ${escape(quote.contactName)},</p>
 <p>We've received your quote request <strong>${escape(quote.quoteNumber)}</strong>. Our team will check your branding requirements and send you a formal quotation.</p>` +
             table(headers, rows) +
-            `<p style="color:#71717a;font-size:12px">This is an automatic message from noreply. Please don't reply to it.</p>`,
+            customerFootnote(),
         ),
       },
       `customer confirmation for ${quote.quoteNumber}`,
@@ -223,7 +262,10 @@ function totals(order: StoredOrder): string {
 }
 
 export async function notifyNewOrder(order: StoredOrder): Promise<void> {
-  const staff = staffEmails()
+  const staff = recipients(mailbox("sales"), extraStaff())
+  const accounts = recipients(mailbox("accounts")).filter(
+    (email) => !staff.some((s) => s.toLowerCase() === email.toLowerCase()),
+  )
   const headers = ["Product", "Colour / Size", "Qty", "Unit", "Line"]
   const rows = orderItemRows(order)
   const tasks: Promise<void>[] = []
@@ -233,6 +275,7 @@ export async function notifyNewOrder(order: StoredOrder): Promise<void> {
       send(
         {
           to: staff,
+          cc: accounts.length > 0 ? accounts : undefined,
           replyTo: order.contactEmail,
           subject: oneLine(`New order ${order.orderNumber} (${formatPrice(order.total)})`),
           html: layout(
@@ -259,14 +302,15 @@ export async function notifyNewOrder(order: StoredOrder): Promise<void> {
     send(
       {
         to: order.contactEmail,
+        replyTo: mailbox("sales"),
         subject: oneLine(`We received your order ${order.orderNumber}`),
         html: layout(
           "Thank you for your order",
           `<p>Hi ${escape(order.contactName)},</p>
-<p>We've received your order <strong>${escape(order.orderNumber)}</strong>. Lenor will confirm stock and send you an invoice with payment details.</p>` +
+<p>We've received your order <strong>${escape(order.orderNumber)}</strong>. ${escape(SITE_NAME)} will confirm stock and send you an invoice with payment details.</p>` +
             table(headers, rows) +
             totals(order) +
-            `<p style="color:#71717a;font-size:12px">This is an automatic message from noreply. Please don't reply to it.</p>`,
+            customerFootnote(),
         ),
       },
       `customer confirmation for ${order.orderNumber}`,
@@ -274,4 +318,51 @@ export async function notifyNewOrder(order: StoredOrder): Promise<void> {
   )
 
   await Promise.all(tasks)
+}
+
+/* ------------------------------------------------------------------ */
+/*  Contact form                                                       */
+/* ------------------------------------------------------------------ */
+
+export type ContactMessage = {
+  name: string
+  email: string
+  phone?: string
+  company?: string
+  subject: string
+  message: string
+}
+
+/** Sends a contact-form message to info@ (Reply-To is the visitor). */
+export async function notifyContactMessage(msg: ContactMessage): Promise<boolean> {
+  const transport = getTransporter()
+  if (!transport) {
+    console.log("Lénor: email not configured (SMTP_HOST empty), contact message not sent")
+    return false
+  }
+  try {
+    await transport.sendMail({
+      from: sender(),
+      to: recipients(mailbox("info"), extraStaff()),
+      replyTo: msg.email,
+      subject: oneLine(`Website enquiry: ${msg.subject}`),
+      html: layout(
+        "New message from the website",
+        details([
+          ["Name", msg.name],
+          ["Email", msg.email],
+          ["Phone", msg.phone],
+          ["Company", msg.company],
+          ["Subject", msg.subject],
+        ]) +
+          `<p style="white-space:pre-wrap">${escape(msg.message)}</p>` +
+          `<p style="color:#4a4e5a;font-size:12px">Reply to this email to answer ${escape(msg.name)} directly.</p>`,
+      ),
+    })
+    console.log("Lénor: email sent: contact message")
+    return true
+  } catch (error) {
+    console.error("Lénor: email failed: contact message:", error)
+    return false
+  }
 }

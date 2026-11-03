@@ -98,7 +98,7 @@ export function ProductCatalog({ products }: ProductCatalogProps) {
       {/* Main Content */}
       <div className="flex-1 space-y-6">
         {/* Search and Sort Bar - Mobile responsive */}
-        <div className="bg-white p-4 sm:p-6 rounded-xl sm:rounded-2xl shadow-sm border border-gray-100">
+        <div className="bg-white p-4 sm:p-6 rounded-xl sm:rounded-2xl shadow-sm border border-border">
           <div className="flex flex-col space-y-4 sm:space-y-0 sm:flex-row sm:gap-4 sm:items-center sm:justify-between">
             <div className="relative flex-1 w-full sm:max-w-lg">
               <Search className="absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4 sm:h-5 sm:w-5" />

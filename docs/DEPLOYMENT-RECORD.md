@@ -157,6 +157,6 @@ After changing the Nginx config, always run `nginx -t` before `systemctl reload 
 - [ ] Set up daily backups of `/root/lenor/.data/`: `mkdir -p ~/backups && (crontab -l 2>/dev/null; echo '0 2 * * * tar czf ~/backups/lenor-data-$(date +\%F).tgz -C ~/lenor .data') | crontab -`
 - [ ] Switch on Backups in the domains.co.za VPS panel, so there's a copy off the server.
 - [ ] Test on the live site: sign up, request a quote with a logo, place an order, and check `/orders` as an admin.
-- [ ] Add the email (SMTP) settings for noreply@lenor.co.za once Lenor sends them, then rebuild.
+- [ ] Add the email settings to `.env.production.local` (`SMTP_HOST=cp66.domains.co.za`, `SMTP_PORT=465`, `SMTP_USER=info@lenor.co.za`, `SMTP_PASSWORD=...`), then rebuild and send a test from the contact page.
 - [ ] Make logging in safer: set up an SSH key for admin logins, then turn off password login for root.
 - [ ] Optionally run the site as a normal user instead of root.

@@ -54,7 +54,7 @@ function ProductRow({
         <h2 className="text-lg font-bold text-foreground">{title}</h2>
         <Link
           href={href}
-          className="flex items-center text-sm font-medium text-primary hover:underline"
+          className="flex items-center text-sm font-medium text-accent hover:underline"
         >
           See all
           <ChevronRight className="h-4 w-4" />
@@ -87,7 +87,7 @@ export default async function HomePage() {
   const categoryRows = rest.slice(CATEGORIES.length)
 
   return (
-    <div className="min-h-screen bg-neutral-100">
+    <div className="min-h-screen bg-background">
       <SiteHeader />
 
       <main className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 lg:px-8">
@@ -95,7 +95,7 @@ export default async function HomePage() {
         <section className="rounded-lg bg-white p-4 shadow-sm">
           <div className="mb-3 flex items-baseline justify-between">
             <h1 className="text-lg font-bold text-foreground">Shop by category</h1>
-            <Link href="/products" className="text-sm font-medium text-primary hover:underline">
+            <Link href="/products" className="text-sm font-medium text-accent hover:underline">
               Browse all {formatNumber(total)} products
             </Link>
           </div>
@@ -107,9 +107,9 @@ export default async function HomePage() {
                 <Link
                   key={cat.id}
                   href={`/products?category=${cat.slug}`}
-                  className="group flex items-center gap-3 rounded-lg border border-border p-2 transition-colors hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  className="group flex items-center gap-3 rounded-lg border border-border p-2 transition-colors hover:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 >
-                  <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted">
+                  <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white">
                     {sample ? (
                       <img
                         src={sample.images[0]}
@@ -124,8 +124,8 @@ export default async function HomePage() {
                     )}
                   </span>
                   <span
-                    className={`text-sm font-medium leading-tight group-hover:text-primary ${
-                      cat.slug === "all-clearance-items" ? "text-red-600" : "text-foreground"
+                    className={`text-sm font-medium leading-tight group-hover:text-accent ${
+                      cat.slug === "all-clearance-items" ? "text-accent" : "text-foreground"
                     }`}
                   >
                     {cat.name}

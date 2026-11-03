@@ -159,7 +159,7 @@ to wake it, or upgrade before real customers use the site.
    | `CRON_SECRET` | another long random string |
    | `NEXT_PUBLIC_APP_URL` | the site address, e.g. `https://lenor-ecommerce.vercel.app` |
    | `ADMIN_EMAILS` | Lenor staff emails, comma separated |
-   | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM`, `NOTIFY_EMAILS` | when the noreply mailbox details arrive |
+   | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` | `cp66.domains.co.za`, `465`, `info@lenor.co.za`, that mailbox's password (see `.env.example` for routing) |
 
 3. **Settings → Build and Deployment**: Install Command `pnpm install`
    (Vercel detects pnpm from `pnpm-lock.yaml`), Node.js 20 or later.

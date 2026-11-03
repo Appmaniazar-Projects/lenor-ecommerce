@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { SITE_NAME } from "@/lib/constants"
+import { LenorLogo } from "@/components/shared/lenor-logo"
 
 export default function AuthLayout({
   children,
@@ -7,14 +8,9 @@ export default function AuthLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-muted/30 px-4">
-      <Link href="/" className="mb-8 flex items-center gap-2">
-        <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary">
-          <span className="text-lg font-bold text-primary-foreground">L</span>
-        </div>
-        <span className="text-xl font-bold tracking-tight text-foreground">
-          {SITE_NAME}
-        </span>
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
+      <Link href="/" className="mb-8" aria-label={`${SITE_NAME} home`}>
+        <LenorLogo className="h-16" />
       </Link>
       {children}
     </div>

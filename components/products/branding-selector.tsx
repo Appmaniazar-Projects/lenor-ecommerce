@@ -102,7 +102,7 @@ export function BrandingSelector({
               "rounded-lg font-semibold transition-colors",
               compact ? "py-1.5 text-xs" : "py-2.5 text-sm",
               branded === option.value
-                ? "bg-slate-500 text-white shadow-sm"
+                ? "bg-primary text-primary-foreground shadow-sm"
                 : "text-foreground hover:bg-background"
             )}
           >

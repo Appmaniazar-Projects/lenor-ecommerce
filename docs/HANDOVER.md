@@ -16,7 +16,7 @@ Everything runs under Appmaniazar's accounts. No passwords or keys are written i
 | Amrod Vendor API | Product catalogue, prices, stock, branding data | Username, password and customer code issued by Amrod; help: api.support@amrod.co.za |
 | Amrod Order Entry API | Sending orders straight to Amrod | Not granted yet; must be requested from Amrod |
 | PayFast | Card payments (not switched on) | Merchant ID and key exist; passphrase still needed from Lenor |
-| Email (noreply@lenor.co.za) | Quote and order alerts | SMTP login still needed from whoever hosts Lenor's email |
+| Email (cp66.domains.co.za) | Quote, order and contact-form email from info@lenor.co.za | Mailbox password goes in `SMTP_PASSWORD` on the server |
 | domains.co.za | The VPS (billing, password, backups). The lenor.co.za DNS is run elsewhere and already points at the VPS | Lenor's domains.co.za customer portal; access via Lenor (Mr Tk) |
 | VPS (server.lenor.co.za) | The live website, https://lenor.co.za (since 30 October 2026) | ssh root@41.222.36.83 (password in the domains.co.za portal); SSL contact support@appmaniazar.co.za. Full details in [docs/DEPLOYMENT-RECORD.md](DEPLOYMENT-RECORD.md) |
 
@@ -32,7 +32,7 @@ Browser ──HTTPS──▶ Nginx (lenor.co.za, Let's Encrypt SSL)
                │                 │                 │
                ▼                 ▼                 ▼
      /root/lenor/.data/   Amrod Vendor API    SMTP email
-     (accounts, quotes,   (catalogue, prices, (noreply@lenor.co.za)
+     (accounts, quotes,   (catalogue, prices, (info@lenor.co.za)
       orders, logos)       stock, branding)
 
 Everything in the middle runs on the Lenor VPS; only Amrod and email are outside it.
@@ -94,8 +94,9 @@ All settings are environment variables. `.env.example` lists them with comments.
 | `SESSION_SECRET` | On Vercel | 32+ random characters that sign login cookies. Changing it signs everyone out |
 | `CRON_SECRET` | On Vercel | Lets Vercel's daily cron call `/api/cron/catalogue` |
 | `ADMIN_EMAILS` | Recommended | Comma-separated staff emails who see every order and quote |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM` | For email | Outgoing mail for noreply@lenor.co.za. Empty `SMTP_HOST` turns email off |
-| `NOTIFY_EMAILS` | Optional | Staff who get alerts; defaults to `ADMIN_EMAILS` |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM` | For email | `cp66.domains.co.za`, `465` (SSL), sending mailbox `info@lenor.co.za`. Empty `SMTP_HOST` turns email off |
+| `INFO_EMAIL`, `SALES_EMAIL`, `ACCOUNTS_EMAIL` | Optional | Where messages go. Defaults: contact form to info@, quotes to sales@, orders to sales@ with a copy to accounts@ |
+| `NOTIFY_EMAILS` | Optional | Extra staff copied on every alert |
 | `NEXT_PUBLIC_PRICES_REQUIRE_LOGIN` | Optional | `true` hides prices until customers sign in (default: prices shown) |
 | `AMROD_LOGIN_URL` | Optional | Overrides the VendorLogin address (testing only) |
 | `AMROD_USE_BRANDING_ENDPOINT` | Optional | `false` uses the plain product list without branding data |
@@ -154,7 +155,7 @@ Amrod's website and API share one login, so a password reset on the website brea
 
 **Prices.** Shown to everyone by default. Setting `NEXT_PUBLIC_PRICES_REQUIRE_LOGIN=true` removes prices on the server for visitors.
 
-**Email alerts.** For every quote and order, staff get an alert (with the logo attached when under 10 MB, and Reply-To set to the customer) and the customer gets a confirmation from noreply@lenor.co.za. Emails are sent after the page responds; a failed email is logged and never loses the quote or order.
+**Email alerts.** For every quote and order, staff get an alert (with the logo attached when under 10 MB, and Reply-To set to the customer) and the customer gets a confirmation whose replies go to sales@lenor.co.za. Quote alerts go to sales@, order alerts to sales@ with a copy to accounts@, and contact-form messages to info@. Emails are sent after the page responds; a failed email is logged and never loses the quote or order.
 
 ## Checking changes
 
@@ -174,7 +175,7 @@ The code is complete for browsing, quoting and ordering; what remains is mostly 
 | Item | State | Waiting on |
 | --- | --- | --- |
 | Server backups | Not set up | Nothing: a daily backup of /root/lenor/.data/ plus domains.co.za panel backups (see the Lenor Server Deployment Record) |
-| Email alerts | Built, switched off | SMTP details for noreply@lenor.co.za and the staff alert address (Lenor) |
+| Email alerts | Built; on once `SMTP_PASSWORD` is set | Password for info@lenor.co.za on the server |
 | PayFast card payments | Not built | PayFast passphrase, and whether Lenor wants card payment or invoices (Lenor) |
 | Orders sent to Amrod | Not built | Amrod Order Entry API access (Lenor to request from Amrod) |
 | Contact details | Placeholders (+27 11 234 5678, Sandton address) in the footer, contact page and checkout success page | Lenor's real phone, email, address and hours |

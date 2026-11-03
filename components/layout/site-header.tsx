@@ -26,6 +26,7 @@ import { useCart } from "@/contexts/cart-context"
 import { useQuote } from "@/contexts/quote-context"
 import { useAuth } from "@/contexts/auth-context"
 import { CATEGORIES, SITE_NAME } from "@/lib/constants"
+import { LenorLogo } from "@/components/shared/lenor-logo"
 
 const CLEARANCE_SLUG = "all-clearance-items"
 
@@ -55,12 +56,12 @@ function SearchBar({ className = "" }: { className?: string }) {
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search products, brands or codes"
         aria-label="Search products"
-        className="h-10 min-w-0 flex-1 rounded-l-md border-0 bg-white px-4 text-sm text-neutral-900 outline-none placeholder:text-neutral-500 focus-visible:ring-2 focus-visible:ring-accent"
+        className="h-10 min-w-0 flex-1 rounded-l-md border border-r-0 border-primary/15 bg-white px-4 text-sm text-neutral-900 outline-none placeholder:text-neutral-500 focus-visible:ring-2 focus-visible:ring-accent"
       />
       <button
         type="submit"
         aria-label="Search"
-        className="flex h-10 w-12 items-center justify-center rounded-r-md bg-accent text-accent-foreground transition-colors hover:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+        className="flex h-10 w-12 items-center justify-center rounded-r-md bg-accent text-accent-foreground transition-colors hover:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       >
         <Search className="h-5 w-5" />
       </button>
@@ -74,20 +75,15 @@ export function SiteHeader() {
   const { user, isAuthenticated, logout } = useAuth()
 
   const iconLink =
-    "relative flex items-center gap-2 rounded-md px-2 py-2 text-sm font-medium text-white transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+    "relative flex items-center gap-2 rounded-md px-2 py-2 text-sm font-medium text-foreground transition-colors hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
 
   return (
     <header className="sticky top-0 z-50 w-full shadow-sm">
       {/* Row 1: logo, search, account, quote, cart */}
-      <div className="bg-primary text-primary-foreground">
+      <div className="bg-background text-foreground">
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-2.5 lg:gap-6 lg:px-8">
-          <Link href="/" className="flex shrink-0 items-center gap-2" aria-label={`${SITE_NAME} home`}>
-            <span className="flex h-9 w-9 items-center justify-center rounded-md bg-white text-lg font-bold text-primary">
-              L
-            </span>
-            <span className="hidden text-xl font-bold tracking-tight sm:inline">
-              {SITE_NAME}
-            </span>
+          <Link href="/" className="flex shrink-0 items-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent" aria-label={`${SITE_NAME} home`}>
+            <LenorLogo className="h-10 sm:h-12" />
           </Link>
 
           <SearchBar className="hidden flex-1 md:flex md:max-w-3xl" />
@@ -159,13 +155,13 @@ export function SiteHeader() {
       </div>
 
       {/* Row 2: categories */}
-      <nav aria-label="Categories" className="border-b border-border bg-white">
+      <nav aria-label="Categories" className="bg-primary text-primary-foreground">
         <div className="mx-auto flex max-w-7xl items-center gap-1 px-4 lg:px-8">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                className="flex shrink-0 items-center gap-1.5 rounded-md px-2 py-2.5 text-sm font-semibold text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                className="flex shrink-0 items-center gap-1.5 rounded-md px-2 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               >
                 <Menu className="h-4 w-4" />
                 All Categories
@@ -181,7 +177,7 @@ export function SiteHeader() {
                 <DropdownMenuItem key={cat.id} asChild>
                   <Link
                     href={`/products?category=${cat.slug}`}
-                    className={cat.slug === CLEARANCE_SLUG ? "font-semibold text-red-600" : ""}
+                    className={cat.slug === CLEARANCE_SLUG ? "font-semibold text-accent" : ""}
                   >
                     {cat.name}
                   </Link>
@@ -195,10 +191,10 @@ export function SiteHeader() {
               <Link
                 key={cat.id}
                 href={`/products?category=${cat.slug}`}
-                className={`shrink-0 rounded-md px-2.5 py-2.5 text-sm transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                className={`shrink-0 rounded-md px-2.5 py-2.5 text-sm transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
                   cat.slug === CLEARANCE_SLUG
-                    ? "font-semibold text-red-600"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? "font-semibold text-[#FF5FAE]"
+                    : "text-primary-foreground/80 hover:text-primary-foreground"
                 }`}
               >
                 {cat.name}
